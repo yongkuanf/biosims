@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fatty Acid Simulation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .button-container {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #e0e0e0;
+        }
+        button.active {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .simulation-box {
+            position: relative;
+            width: 600px;
+            height: 450px;
+            border: 2px solid #333;
+            margin: 0 auto;
+            background-color: #f9f9f9;
+        }
+        .properties {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border: 1px solid #ddd;
+            font-size: 12px;
+            width: 580px;
+            z-index: 10;
+            display: flex;
+            justify-content: space-between;
+        }
+        .property-column {
+            width: 48%;
+        }
+        .properties p {
+            margin: 4px 0;
+        }
+        .instructions {
+            margin-top: 20px;
+            font-style: italic;
+            color: #666;
+            text-align: center;
+        }
+        .fatty-acid-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <h1>Fatty Acid Structure Simulation</h1>
+    <div class="button-container">
+        <button id="saturated">Saturated Fatty Acids</button>
+        <button id="unsaturated">Unsaturated Fatty Acids</button>
+    </div>
+    <div class="simulation-box" id="simulation">
+        <div class="properties" id="properties" style="display: none;"></div>
+        <div class="fatty-acid-container" id="fatty-acid-container"></div>
+    </div>
+    <div class="instructions">
+        Select a fatty acid type above to view its structural arrangement and properties.
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const simulationBox = document.getElementById('simulation');
+            const propertiesBox = document.getElementById('properties');
+            const fattyAcidContainer = document.getElementById('fatty-acid-container');
+            const saturatedButton = document.getElementById('saturated');
+            const unsaturatedButton = document.getElementById('unsaturated');
+            
+            saturatedButton.addEventListener('click', function() {
+                renderSimulation('saturated');
+                saturatedButton.classList.add('active');
+                unsaturatedButton.classList.remove('active');
+            });
+            
+            unsaturatedButton.addEventListener('click', function() {
+                renderSimulation('unsaturated');
+                unsaturatedButton.classList.add('active');
+                saturatedButton.classList.remove('active');
+            });
+            
+            function renderSimulation(type) {
+                // Clear previous fatty acids
+                fattyAcidContainer.innerHTML = '';
+                
+                // Show properties box
+                propertiesBox.style.display = 'flex';
+                
+                // Set properties based on type
+                if (type === 'saturated') {
+                    propertiesBox.innerHTML = `
+                        <div class="property-column">
+                            <p><strong>Presence of C=C double bond:</strong> None</p>
+                            <p><strong>Presence of Kinks:</strong> None</p>
+                            <p><strong>Packing of fatty acids:</strong> Closely together</p>
+                        </div>
+                        <div class="property-column">
+                            <p><strong>Intermolecular forces of attraction:</strong> Strong</p>
+                            <p><strong>Melting point:</strong> High</p>
+                            <p><strong>State at room temperature:</strong> Solid</p>
+                        </div>
+                    `;
+                    
+                    // Draw saturated fatty acids (straight lines)
+                    // Updated with significantly reduced row spacing and moved lower in the box
+                    const columnSpacing = 120;         // Horizontal spacing between columns
+                    const rowSpacing = 90 * 0.45;      // Reduced to less than half (45% of original)
+                    const startX = 100;                // Starting X position
+                    const startY = 250;                // Moved lower in the box (was 100)
+                    
+                    for (let row = 0; row < 4; row++) {
+                        for (let col = 0; col < 3; col++) {
+                            const x = startX + col * columnSpacing;
+                            const y = startY + row * rowSpacing;
+                            drawSaturatedFattyAcid(x, y);
+                        }
+                    }
+                } else if (type === 'unsaturated') {
+                    propertiesBox.innerHTML = `
+                        <div class="property-column">
+                            <p><strong>Presence of C=C double bond:</strong> Yes</p>
+                            <p><strong>Presence of Kinks:</strong> Yes</p>
+                            <p><strong>Packing of fatty acids:</strong> Further apart</p>
+                        </div>
+                        <div class="property-column">
+                            <p><strong>Intermolecular forces of attraction:</strong> Weak</p>
+                            <p><strong>Melting point:</strong> Low</p>
+                            <p><strong>State at room temperature:</strong> Liquid</p>
+                        </div>
+                    `;
+                    
+                    // Draw unsaturated fatty acids (lines with kinks)
+                    const columnSpacing = 140;         // Wider spacing for unsaturated
+                    const rowSpacing = 100;            // Original spacing between rows
+                    const startX = 90;                 // Starting X position
+                    const startY = 100;                // Starting Y position (unchanged)
+                    
+                    for (let row = 0; row < 4; row++) {
+                        for (let col = 0; col < 3; col++) {
+                            const x = startX + col * columnSpacing + (Math.random() * 10 - 5); // Less randomness
+                            const y = startY + row * rowSpacing + (Math.random() * 10 - 5);    // Less randomness
+                            drawUnsaturatedFattyAcid(x, y);
+                        }
+                    }
+                }
+            }
+            
+            function drawSaturatedFattyAcid(x, y) {
+                const fattyAcid = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                fattyAcid.setAttribute("width", "70"); // Made slightly smaller
+                fattyAcid.setAttribute("height", "30"); // Made slightly smaller
+                fattyAcid.style.position = "absolute";
+                fattyAcid.style.left = x + "px";
+                fattyAcid.style.top = y + "px";
+                
+                // Straight line for saturated fatty acid
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", "0");
+                line.setAttribute("y1", "15"); // Adjusted for smaller height
+                line.setAttribute("x2", "40"); // Made shorter
+                line.setAttribute("y2", "15"); // Adjusted for smaller height
+                line.setAttribute("stroke", "#333");
+                line.setAttribute("stroke-width", "2");
+                fattyAcid.appendChild(line);
+                
+                // COOH group
+                const cooh = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                cooh.setAttribute("x", "42"); // Adjusted position
+                cooh.setAttribute("y", "18"); // Adjusted position
+                cooh.setAttribute("font-size", "8"); // Smaller font
+                cooh.textContent = "COOH";
+                fattyAcid.appendChild(cooh);
+                
+                fattyAcidContainer.appendChild(fattyAcid);
+            }
+            
+            function drawUnsaturatedFattyAcid(x, y) {
+                const fattyAcid = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                fattyAcid.setAttribute("width", "70"); // Made slightly smaller
+                fattyAcid.setAttribute("height", "30"); // Made slightly smaller
+                fattyAcid.style.position = "absolute";
+                fattyAcid.style.left = x + "px";
+                fattyAcid.style.top = y + "px";
+                
+                // Path with kinks for unsaturated fatty acid
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                
+                // Random kinks
+                const numKinks = Math.floor(Math.random() * 2) + 1; // 1 or 2 kinks
+                let d = "M0,15 "; // Adjusted for smaller height
+                
+                if (numKinks === 1) {
+                    const kinkX = 18 + Math.random() * 5; // Scaled down
+                    d += `L${kinkX},8 L40,15`; // Made shorter
+                } else {
+                    const kink1X = 10 + Math.random() * 5; // Scaled down
+                    const kink2X = 25 + Math.random() * 5; // Scaled down
+                    d += `L${kink1X},8 L${kink2X},22 L40,15`; // Made shorter
+                }
+                
+                path.setAttribute("d", d);
+                path.setAttribute("stroke", "#333");
+                path.setAttribute("stroke-width", "2");
+                path.setAttribute("fill", "none");
+                fattyAcid.appendChild(path);
+                
+                // Double bond indicator
+                const doubleBond = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                doubleBond.setAttribute("x1", "10"); // Adjusted position
+                doubleBond.setAttribute("y1", "9");  // Adjusted position
+                doubleBond.setAttribute("x2", "10"); // Adjusted position
+                doubleBond.setAttribute("y2", "6");  // Adjusted position
+                doubleBond.setAttribute("stroke", "#333");
+                doubleBond.setAttribute("stroke-width", "2");
+                fattyAcid.appendChild(doubleBond);
+                
+                // COOH group
+                const cooh = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                cooh.setAttribute("x", "42"); // Adjusted position
+                cooh.setAttribute("y", "18"); // Adjusted position
+                cooh.setAttribute("font-size", "8"); // Smaller font
+                cooh.textContent = "COOH";
+                fattyAcid.appendChild(cooh);
+                
+                fattyAcidContainer.appendChild(fattyAcid);
+            }
+        });
+    </script>
+</body>
+</html>
