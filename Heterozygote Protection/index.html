@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .individuals-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 16px;
+            margin: 20px 0;
+        }
+
+        .individual {
+            width: 100px;
+            height: 140px;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .individual:hover {
+            transform: scale(1.05);
+        }
+
+        .button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background-color: #3b82f6;
+            color: white;
+            margin: 10px;
+        }
+
+        .button:hover {
+            background-color: #2563eb;
+        }
+
+        .button.restart {
+            background-color: #22c55e;
+        }
+
+        .button.restart:hover {
+            background-color: #16a34a;
+        }
+
+        .alert {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #fee2e2;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .stats {
+            margin: 20px 0;
+            font-size: 1.2em;
+        }
+
+        .instructions {
+            margin: 20px 0;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Heterozygote Protection Simulation</h1>
+        <div class="stats" id="frequencies"></div>
+        <div id="button-container">
+            <button class="button" id="start-button">Start Simulation</button>
+            <button class="button restart" id="restart-button">Restart Simulation</button>
+        </div>
+        <div class="individuals-container" id="individuals"></div>
+        <div class="instructions" id="instructions"></div>
+        <div class="alert" id="alert">Black individuals are not selected against!</div>
+    </div>
+
+    <script>
+        class HeterozygoteSimulation {
+            constructor() {
+                this.individuals = [];
+                this.showGenotype = true;
+                this.gameStarted = false;
+                this.gameComplete = false;
+
+                this.individualsContainer = document.getElementById('individuals');
+                this.buttonContainer = document.getElementById('button-container');
+                this.frequenciesDisplay = document.getElementById('frequencies');
+                this.alert = document.getElementById('alert');
+                this.instructions = document.getElementById('instructions');
+
+                this.init();
+                this.setupEventListeners();
+            }
+
+            init() {
+                this.generatePopulation();
+                this.renderIndividuals();
+                this.updateFrequencies();
+            }
+
+            generatePopulation() {
+                const numAA = Math.floor(Math.random() * 5) + 3;
+                const numAa = Math.floor(Math.random() * 5) + 3;
+                const numaa = Math.floor(Math.random() * 5) + 3;
+
+                this.individuals = [
+                    ...Array(numAA).fill().map(() => ({ genotype: 'AA', active: true })),
+                    ...Array(numAa).fill().map(() => ({ genotype: 'Aa', active: true })),
+                    ...Array(numaa).fill().map(() => ({ genotype: 'aa', active: true }))
+                ];
+            }
+
+            shuffleArray(array) {
+                const newArray = [...array];
+                for (let i = newArray.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+                }
+                return newArray;
+            }
+
+            calculateAlleleFrequencies() {
+                const activeIndividuals = this.individuals.filter(ind => ind.active);
+                let countA = 0;
+                let counta = 0;
+
+                activeIndividuals.forEach(ind => {
+                    if (ind.genotype === 'AA') {
+                        countA += 2;
+                    } else if (ind.genotype === 'Aa') {
+                        countA += 1;
+                        counta += 1;
+                    } else {
+                        counta += 2;
+                    }
+                });
+
+                const total = countA + counta;
+                const freqA = (countA / total) || 0;
+                const freqa = (counta / total) || 0;
+
+                return {
+                    A: freqA.toFixed(3),
+                    a: freqa.toFixed(3),
+                    countA,
+                    counta
+                };
+            }
+
+            updateFrequencies() {
+                const frequencies = this.calculateAlleleFrequencies();
+                this.frequenciesDisplay.textContent =
+                    `Allele Frequencies: A = ${frequencies.A}, a = ${frequencies.a} ` +
+                    `(Counts: A = ${frequencies.countA}, a = ${frequencies.counta})`;
+            }
+
+            renderIndividuals() {
+                this.individualsContainer.innerHTML = '';
+                this.individuals.forEach((individual, index) => {
+                    if (!individual.active) return;
+
+                    const phenotype = individual.genotype === 'aa' ? 'white' : 'black';
+                    const card = document.createElement('div');
+                    card.className = 'individual';
+                    card.style.backgroundColor = this.showGenotype ? '#f3f4f6' :
+                        (phenotype === 'white' ? 'white' : 'black');
+
+                    if (this.showGenotype) {
+                        card.textContent = individual.genotype;
+                        card.style.color = 'black';
+                    } else {
+                        card.textContent = '';
+                    }
+
+                    card.addEventListener('click', () => this.handleIndividualClick(index));
+                    this.individualsContainer.appendChild(card);
+                });
+            }
+
+            handleIndividualClick(index) {
+                if (!this.gameStarted || this.gameComplete) return;
+
+                const individual = this.individuals[index];
+                if (!individual.active) return;
+
+                if (individual.genotype !== 'aa') {
+                    this.showAlert();
+                    return;
+                }
+
+                individual.active = false;
+                this.renderIndividuals();
+                this.updateFrequencies();
+
+                const remainingWhite = this.individuals.filter(
+                    ind => ind.active && ind.genotype === 'aa'
+                );
+
+                if (remainingWhite.length === 0) {
+                    this.showGenotype = true;
+                    this.gameComplete = true;
+                    this.renderIndividuals();
+                    this.showRestartMessage();
+                }
+            }
+
+            showAlert() {
+                this.alert.style.display = 'block';
+                setTimeout(() => {
+                    this.alert.style.display = 'none';
+                }, 2000);
+            }
+
+            setupEventListeners() {
+                document.getElementById('start-button').addEventListener('click', () => {
+                    if (this.gameStarted || this.gameComplete) return;
+
+                    this.individuals = this.shuffleArray(this.individuals);
+                    this.showGenotype = false;
+                    this.gameStarted = true;
+                    this.renderIndividuals();
+                    this.instructions.textContent =
+                        'Click on the white individuals (aa) to remove them from the population.';
+                });
+
+                document.getElementById('restart-button').addEventListener('click', () => {
+                    this.reset();
+                });
+            }
+
+            showRestartMessage() {
+                this.instructions.textContent = 'Simulation complete! Click "Restart Simulation" to try again.';
+            }
+
+            reset() {
+                this.individuals = [];
+                this.showGenotype = true;
+                this.gameStarted = false;
+                this.gameComplete = false;
+                this.init();
+                this.instructions.textContent = '';
+            }
+        }
+
+        // Initialize on load
+        window.addEventListener('load', () => {
+            new HeterozygoteSimulation();
+        });
+    </script>
+</body>
+</html>
