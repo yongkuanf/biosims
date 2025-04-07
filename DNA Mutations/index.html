@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DNA Mutations Simulation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        
+        h1, h2, h3 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        
+        .btn-container {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        .section {
+            display: none;
+        }
+        
+        .active {
+            display: block;
+        }
+        
+        .sequence {
+            font-family: monospace;
+            font-size: 24px;
+            text-align: center;
+            margin: 20px 0;
+            letter-spacing: 5px;
+        }
+        
+        .mutation-highlight {
+            color: red;
+            font-weight: bold;
+        }
+        
+        .sequence-comparison {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin: 20px 0;
+        }
+        
+        .sequence-box {
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        
+        .karyotype-container {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin: 20px 0;
+        }
+        
+        .karyotype {
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            width: 400px;
+            text-align: center;
+        }
+        
+        .karyotype-title {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .karyotype-image {
+            width: 100%;
+            max-width: 380px;
+            height: auto;
+            margin: 0 auto;
+        }
+        
+        .chromosome-container {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin: 20px 0;
+        }
+        
+        .chromosome-pair {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .chromosome {
+            background-color: #f0f0f0;
+            border-radius: 20px;
+            padding: 10px;
+            margin: 10px 0;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+        
+        .chromosome.longer {
+            width: 250px;
+        }
+        
+        .chromosome.shorter {
+            width: 150px;
+        }
+        
+        .chromosome.normal {
+            width: 200px;
+        }
+        
+        .gene {
+            width: 30px;
+            height: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 50%;
+            background-color: #3498db;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .gene.red {
+            background-color: #e74c3c;
+        }
+        
+        .structural-info {
+            text-align: center;
+            margin: 20px 0;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+        }
+        
+        .sequence-label {
+            font-family: monospace;
+            font-size: 14px;
+            color: #666;
+            text-align: center;
+            margin-bottom: 5px;
+        }
+
+        .sequence-with-numbers {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: monospace;
+            font-size: 24px;
+            letter-spacing: 5px;
+        }
+
+        .sequence-number {
+            font-family: monospace;
+            font-size: 24px;
+            color: #666;
+            margin: 0 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>DNA Mutations Simulation</h1>
+        
+        <!-- Home Page -->
+        <div id="home-section" class="section active">
+            <h2>Select a Mutation Type</h2>
+            <div class="btn-container">
+                <button onclick="showSection('gene-mutations')">Gene Mutations</button>
+                <button onclick="showSection('chromosomal-mutations')">Chromosomal Mutations</button>
+            </div>
+        </div>
+        
+        <!-- Gene Mutations Section -->
+        <div id="gene-mutations" class="section">
+            <h2>Gene Mutations</h2>
+            <div class="sequence-with-numbers">
+                <span class="sequence-number">1-</span>
+                <span class="sequence" id="gene-sequence"></span>
+                <span class="sequence-number">-15</span>
+            </div>
+            <div class="btn-container">
+                <button onclick="applyGeneMutation('substitution')">Substitution</button>
+                <button onclick="applyGeneMutation('addition')">Addition</button>
+                <button onclick="applyGeneMutation('deletion')">Deletion</button>
+                <button onclick="applyGeneMutation('inversion')">Inversion</button>
+            </div>
+            
+            <div id="gene-mutation-result" style="display: none;">
+                <h3 id="mutation-title"></h3>
+                <div class="sequence-comparison">
+                    <div class="sequence-box">
+                        <h4>Original Sequence</h4>
+                        <div class="sequence-with-numbers">
+                            <span class="sequence-number">1-</span>
+                            <span class="sequence" id="original-sequence"></span>
+                            <span class="sequence-number">-15</span>
+                        </div>
+                    </div>
+                    <div class="sequence-box">
+                        <h4>Mutated Sequence</h4>
+                        <div class="sequence-with-numbers">
+                            <span class="sequence-number" id="mutated-start-number">1-</span>
+                            <span class="sequence" id="mutated-sequence"></span>
+                            <span class="sequence-number" id="mutated-end-number">-15</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="btn-container">
+                    <button onclick="returnToGeneMutations()">Return</button>
+                    <button onclick="goHome()">Home</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Chromosomal Mutations Section -->
+        <div id="chromosomal-mutations" class="section">
+            <h2>Chromosomal Mutations</h2>
+            <div class="btn-container">
+                <button onclick="showSection('numerical-mutations')">Numerical Mutations</button>
+                <button onclick="showSection('structural-mutations')">Structural Mutations</button>
+            </div>
+        </div>
+        
+        <!-- Numerical Mutations Section -->
+        <div id="numerical-mutations" class="section">
+            <h2>Numerical Mutations</h2>
+            <div class="btn-container">
+                <button onclick="showNumericalMutation('aneuploidy')">Aneuploidy</button>
+                <button onclick="showNumericalMutation('polyploidy')">Polyploidy</button>
+            </div>
+            
+            <div id="numerical-mutation-result" style="display: none;">
+                <h3 id="numerical-mutation-title"></h3>
+                <div class="karyotype-container">
+                    <div class="karyotype">
+                        <div class="karyotype-title">Normal Karyotype</div>
+                        <div class="karyotype-title">Number of Chromosomes: 46 (2n)</div>
+                        <img src="https://drive.google.com/thumbnail?id=1-9gPPoyo2HqT5Refgo-88J2-20eyEvec" alt="Normal Karyotype" class="karyotype-image" id="normal-karyotype-img">
+                    </div>
+                    <div class="karyotype">
+                        <div class="karyotype-title" id="abnormal-karyotype-title"></div>
+                        <img src="" alt="Abnormal Karyotype" class="karyotype-image" id="abnormal-karyotype-img">
+                    </div>
+                </div>
+                <div class="btn-container">
+                    <button onclick="returnToNumericalMutations()">Return</button>
+                    <button onclick="goHome()">Home</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Structural Mutations Section -->
+        <div id="structural-mutations" class="section">
+            <h2>Structural Mutations</h2>
+            <div class="structural-info">
+                In this example, a healthy individual has 2 chromosomes, chromosome 1 has 4 genes: A, B, C and D, while chromosome 2 has 4 other genes: E, F, G and H
+            </div>
+            <div class="btn-container">
+                <button onclick="showStructuralMutation('duplication')">Duplication</button>
+                <button onclick="showStructuralMutation('deletion')">Deletion</button>
+                <button onclick="showStructuralMutation('translocation')">Translocation</button>
+                <button onclick="showStructuralMutation('inversion')">Inversion</button>
+            </div>
+            
+            <div id="structural-mutation-result" style="display: none;">
+                <h3 id="structural-mutation-title"></h3>
+                <div class="chromosome-container">
+                    <div class="chromosome-pair">
+                        <h4>Original Chromosomes</h4>
+                        <div class="chromosome normal" id="original-chr1">
+                            <div class="gene">A</div>
+                            <div class="gene">B</div>
+                            <div class="gene">C</div>
+                            <div class="gene">D</div>
+                        </div>
+                        <div class="chromosome normal" id="original-chr2">
+                            <div class="gene">E</div>
+                            <div class="gene">F</div>
+                            <div class="gene">G</div>
+                            <div class="gene">H</div>
+                        </div>
+                    </div>
+                    <div class="chromosome-pair">
+                        <h4>Mutated Chromosomes</h4>
+                        <div id="mutated-chr1-container">
+                            <!-- Will be populated with JS -->
+                        </div>
+                        <div id="mutated-chr2-container">
+                            <!-- Will be populated with JS -->
+                        </div>
+                    </div>
+                </div>
+                <div class="btn-container">
+                    <button onclick="returnToStructuralMutations()">Return</button>
+                    <button onclick="goHome()">Home</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let dnaSequence = '';
+        const nucleotides = ['A', 'T', 'G', 'C'];
+        
+        // Initialize the app
+        window.onload = function() {
+            generateRandomDNA();
+        };
+        
+        // Generate random DNA sequence
+        function generateRandomDNA() {
+            dnaSequence = '';
+            for (let i = 0; i < 15; i++) {
+                const randomIndex = Math.floor(Math.random() * 4);
+                dnaSequence += nucleotides[randomIndex];
+            }
+            document.getElementById('gene-sequence').textContent = dnaSequence;
+        }
+        
+        // Show specific section
+        function showSection(sectionId) {
+            // Hide all sections
+            const sections = document.querySelectorAll('.section');
+            sections.forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // Show the selected section
+            document.getElementById(sectionId).classList.add('active');
+            
+            // Reset views when changing sections
+            if (sectionId === 'gene-mutations') {
+                generateRandomDNA();
+                document.getElementById('gene-mutation-result').style.display = 'none';
+            } else if (sectionId === 'numerical-mutations') {
+                document.getElementById('numerical-mutation-result').style.display = 'none';
+            } else if (sectionId === 'structural-mutations') {
+                document.getElementById('structural-mutation-result').style.display = 'none';
+            }
+        }
+        
+        // Apply gene mutation
+        function applyGeneMutation(mutationType) {
+            let mutatedSequence = '';
+            let originalSequence = dnaSequence;
+            let mutationTitle = '';
+            let startNumber = '1';
+            let endNumber = '15';
+            
+            switch(mutationType) {
+                case 'substitution':
+                    const position = Math.floor(Math.random() * dnaSequence.length);
+                    let newNucleotide;
+                    do {
+                        const randomIndex = Math.floor(Math.random() * 4);
+                        newNucleotide = nucleotides[randomIndex];
+                    } while (newNucleotide === dnaSequence[position]);
+                    
+                    mutatedSequence = dnaSequence.substring(0, position) + 
+                                     `<span class="mutation-highlight">${newNucleotide}</span>` + 
+                                     dnaSequence.substring(position + 1);
+                    mutationTitle = "Substitution: One base pair replaced with another";
+                    break;
+                    
+                case 'addition':
+                    const addPosition = Math.floor(Math.random() * (dnaSequence.length + 1));
+                    const addNucleotide = nucleotides[Math.floor(Math.random() * 4)];
+                    
+                    mutatedSequence = dnaSequence.substring(0, addPosition) + 
+                                     `<span class="mutation-highlight">${addNucleotide}</span>` + 
+                                     dnaSequence.substring(addPosition);
+                    mutationTitle = "Addition: One nucleotide added to the sequence";
+                    endNumber = '16';
+                    break;
+                    
+                case 'deletion':
+                    const delPosition = Math.floor(Math.random() * dnaSequence.length);
+                    
+                    mutatedSequence = dnaSequence.substring(0, delPosition) + 
+                                     dnaSequence.substring(delPosition + 1);
+                    originalSequence = dnaSequence.substring(0, delPosition) + 
+                                      `<span class="mutation-highlight">${dnaSequence[delPosition]}</span>` + 
+                                      dnaSequence.substring(delPosition + 1);
+                    mutationTitle = "Deletion: One nucleotide removed from the sequence";
+                    endNumber = '14';
+                    break;
+                    
+                case 'inversion':
+                    const startPos = Math.floor(Math.random() * (dnaSequence.length - 4));
+                    const endPos = startPos + 5;
+                    const invertedSection = dnaSequence.substring(startPos, endPos).split('').reverse().join('');
+                    
+                    mutatedSequence = dnaSequence.substring(0, startPos) + 
+                                     `<span class="mutation-highlight">${invertedSection}</span>` + 
+                                     dnaSequence.substring(endPos);
+                    originalSequence = dnaSequence.substring(0, startPos) + 
+                                      `<span class="mutation-highlight">${dnaSequence.substring(startPos, endPos)}</span>` + 
+                                      dnaSequence.substring(endPos);
+                    mutationTitle = "Inversion: Sequence of 5 nucleotides reversed";
+                    break;
+            }
+            
+            // Display mutation results
+            document.getElementById('mutation-title').textContent = mutationTitle;
+            document.getElementById('original-sequence').innerHTML = originalSequence;
+            document.getElementById('mutated-sequence').innerHTML = mutatedSequence;
+            document.getElementById('mutated-start-number').textContent = startNumber + '-';
+            document.getElementById('mutated-end-number').textContent = '-' + endNumber;
+            document.getElementById('gene-mutation-result').style.display = 'block';
+        }
+        
+        // Return to gene mutations section
+        function returnToGeneMutations() {
+            document.getElementById('gene-mutation-result').style.display = 'none';
+            generateRandomDNA();
+        }
+        
+        // Go back to home
+        function goHome() {
+            showSection('home-section');
+        }
+        
+        // Show numerical mutation
+        function showNumericalMutation(mutationType) {
+            const normalKaryotypeImg = document.getElementById('normal-karyotype-img');
+            const abnormalKaryotypeImg = document.getElementById('abnormal-karyotype-img');
+            
+            // Normal karyotype image is already set in HTML
+            
+            if (mutationType === 'aneuploidy') {
+                document.getElementById('abnormal-karyotype-title').innerHTML = 'Aneuploidy (Trisomy 21)<br>Number of Chromosomes: 47 (2n + 1)';
+                abnormalKaryotypeImg.src = "https://drive.google.com/thumbnail?id=1wp8_8A08uqwAB6Jrx8UtoYoekfwr9Riz";
+                document.getElementById('numerical-mutation-title').textContent = 'Aneuploidy (Trisomy 21)';
+            } else if (mutationType === 'polyploidy') {
+                document.getElementById('abnormal-karyotype-title').innerHTML = 'Polyploidy (Triploid)<br>Number of Chromosomes: 69 (3n)';
+                abnormalKaryotypeImg.src = "https://drive.google.com/thumbnail?id=1oexuJhP5FPZIX5rQUyND0UfgR2aaoad1";
+                document.getElementById('numerical-mutation-title').textContent = 'Polyploidy (Triploid)';
+            }
+            
+            document.getElementById('numerical-mutation-result').style.display = 'block';
+        }
+        
+        // Return to numerical mutations section
+        function returnToNumericalMutations() {
+            document.getElementById('numerical-mutation-result').style.display = 'none';
+        }
+        
+        // Show structural mutation
+        function showStructuralMutation(mutationType) {
+            const mutatedChr1Container = document.getElementById('mutated-chr1-container');
+            const mutatedChr2Container = document.getElementById('mutated-chr2-container');
+            mutatedChr1Container.innerHTML = '';
+            mutatedChr2Container.innerHTML = '';
+            
+            let chr1Class = 'normal';
+            let chr2Class = 'normal';
+            
+            switch(mutationType) {
+                case 'duplication':
+                    document.getElementById('structural-mutation-title').textContent = 'Duplication: Gene A is duplicated';
+                    chr1Class = 'longer';
+                    
+                    // Create mutated chromosome 1 with duplicated gene A
+                    const chr1 = document.createElement('div');
+                    chr1.className = `chromosome ${chr1Class}`;
+                    
+                    createGene(chr1, 'A', true);
+                    createGene(chr1, 'A');
+                    createGene(chr1, 'B');
+                    createGene(chr1, 'C');
+                    createGene(chr1, 'D');
+                    
+                    mutatedChr1Container.appendChild(chr1);
+                    
+                    // Create mutated chromosome 2 (unchanged)
+                    const chr2 = document.createElement('div');
+                    chr2.className = `chromosome ${chr2Class}`;
+                    
+                    createGene(chr2, 'E');
+                    createGene(chr2, 'F');
+                    createGene(chr2, 'G');
+                    createGene(chr2, 'H');
+                    
+                    mutatedChr2Container.appendChild(chr2);
+                    break;
+                    
+                case 'deletion':
+                    document.getElementById('structural-mutation-title').textContent = 'Deletion: Gene A is deleted';
+                    chr1Class = 'shorter';
+                    
+                    // Create mutated chromosome 1 without gene A
+                    const chr1Del = document.createElement('div');
+                    chr1Del.className = `chromosome ${chr1Class}`;
+                    
+                    createGene(chr1Del, 'B');
+                    createGene(chr1Del, 'C');
+                    createGene(chr1Del, 'D');
+                    
+                    mutatedChr1Container.appendChild(chr1Del);
+                    
+                    // Create mutated chromosome 2 (unchanged)
+                    const chr2Del = document.createElement('div');
+                    chr2Del.className = `chromosome ${chr2Class}`;
+                    
+                    createGene(chr2Del, 'E');
+                    createGene(chr2Del, 'F');
+                    createGene(chr2Del, 'G');
+                    createGene(chr2Del, 'H');
+                    
+                    mutatedChr2Container.appendChild(chr2Del);
+                    break;
+                    
+                case 'translocation':
+                    document.getElementById('structural-mutation-title').textContent = 'Translocation: Genes A and E exchanged';
+                    
+                    // Create mutated chromosome 1 with gene E
+                    const chr1Trans = document.createElement('div');
+                    chr1Trans.className = `chromosome ${chr1Class}`;
+                    
+                    createGene(chr1Trans, 'E', true);
+                    createGene(chr1Trans, 'B');
+                    createGene(chr1Trans, 'C');
+                    createGene(chr1Trans, 'D');
+                    
+                    mutatedChr1Container.appendChild(chr1Trans);
+                    
+                    // Create mutated chromosome 2 with gene A
+                    const chr2Trans = document.createElement('div');
+                    chr2Trans.className = `chromosome ${chr2Class}`;
+                    
+                    createGene(chr2Trans, 'A', true);
+                    createGene(chr2Trans, 'F');
+                    createGene(chr2Trans, 'G');
+                    createGene(chr2Trans, 'H');
+                    
+                    mutatedChr2Container.appendChild(chr2Trans);
+                    break;
+                    
+                case 'inversion':
+                    document.getElementById('structural-mutation-title').textContent = 'Inversion: Genes B and C are inverted';
+                    
+                    // Create mutated chromosome 1 with inverted genes B and C
+                    const chr1Inv = document.createElement('div');
+                    chr1Inv.className = `chromosome ${chr1Class}`;
+                    
+                    createGene(chr1Inv, 'A');
+                    createGene(chr1Inv, 'C', true);
+                    createGene(chr1Inv, 'B', true);
+                    createGene(chr1Inv, 'D');
+                    
+                    mutatedChr1Container.appendChild(chr1Inv);
+                    
+                    // Create mutated chromosome 2 (unchanged)
+                    const chr2Inv = document.createElement('div');
+                    chr2Inv.className = `chromosome ${chr2Class}`;
+                    
+                    createGene(chr2Inv, 'E');
+                    createGene(chr2Inv, 'F');
+                    createGene(chr2Inv, 'G');
+                    createGene(chr2Inv, 'H');
+                    
+                    mutatedChr2Container.appendChild(chr2Inv);
+                    break;
+            }
+            
+            document.getElementById('structural-mutation-result').style.display = 'block';
+        }
+        
+        // Helper function to create a gene in a chromosome
+        function createGene(chromosome, letter, isRed = false) {
+            const gene = document.createElement('div');
+            gene.className = isRed ? 'gene red' : 'gene';
+            gene.textContent = letter;
+            chromosome.appendChild(gene);
+        }
+        
+        // Return to structural mutations section
+        function returnToStructuralMutations() {
+            document.getElementById('structural-mutation-result').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
