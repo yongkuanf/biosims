@@ -189,8 +189,8 @@
       const suPer100Eu = 1000 / currentMag; // Number of stage small units per 100 eyepiece units
       let stageSmallPx;
       if (currentMag === 4) {
-        // At 4x, 100 stage units = 50 eyepiece units
-        stageSmallPx = (totalScalePx / 2) / 100; // 100 stage units over half the eyepiece scale
+        // At 4x, 100 stage units = 40 eyepiece units
+        stageSmallPx = (totalScalePx * 0.4) / 100; // 100 stage units over 40% of eyepiece scale
       } else {
         stageSmallPx = totalScalePx / suPer100Eu; // Standard scaling for other mags
       }
