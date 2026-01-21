@@ -1,292 +1,232 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Microscope Eyepiece Graticule Calibration Simulation</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin: 20px;
-      background-color: #f0f0f0;
-    }
-    #microscopeView {
-      border: 1px solid black;
-      background-color: #ffffff;
-    }
-    #controls, #movement, #steps, #calculations {
-      margin: 10px 0;
-      padding: 10px;
-      border: 1px solid #ccc;
-      background-color: #fff;
-      width: 600px;
-    }
-    button {
-      margin: 5px;
-      padding: 5px 10px;
-    }
-    #result {
-      margin-top: 10px;
-      font-weight: bold;
-      color: green;
-    }
-    input[type="number"] {
-      width: 60px;
-      margin: 5px;
-    }
-    #calculations div {
-      margin-left: 20px;
-      line-height: 2;
-    }
-    .legend {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      font-size: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-    }
-    .legend div {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-    .dash {
-      width: 20px;
-      height: 2px;
-      display: inline-block;
-    }
-    .blue-dash {
-      background-color: blue;
-    }
-    .red-dash {
-      background-color: red;
-    }
-    .magnification {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      font-size: 12px;
-      font-weight: bold;
-    }
-    .stage-note {
-      position: absolute;
-      bottom: 10px;
-      right: 10px;
-      font-size: 12px;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>Eyepiece Graticule Calibration</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background:#222;
+  color:#eee;
+  display:flex;
+  gap:30px;
+  padding:20px;
+}
+
+#scope { width:460px; }
+
+#microscope {
+  position:relative;
+  width:400px;
+  height:400px;
+  border-radius:50%;
+  overflow:hidden;
+  background:#ddd;
+}
+
+canvas {
+  position:absolute;
+  top:0; left:0;
+  width:100%; height:100%;
+}
+
+.controls button {
+  margin:4px;
+  padding:6px 10px;
+}
+
+.controls button.active {
+  border:2px solid #fff;
+  font-weight:bold;
+}
+
+table { border-collapse:collapse; margin-top:8px; }
+td { padding:4px 6px; }
+input { width:60px; }
+
+.feedback { font-size:0.85em; }
+.wrong { color:#ff6666; }
+.correct { color:#66ff99; }
+</style>
 </head>
+
 <body>
-  <h1>Microscope Eyepiece Graticule Calibration Simulation</h1>
-  <div style="position: relative;">
-    <canvas id="microscopeView" width="600" height="400"></canvas>
-    <div class="magnification" id="magDisplay">Magnification: 40x</div>
-    <div class="legend">
-      <div><span class="dash blue-dash"></span> Eyepiece Graticule</div>
-      <div><span class="dash red-dash"></span> Stage Micrometer</div>
-    </div>
-    <div class="stage-note">For stage micrometer, 1 DIV = 0.01mm</div>
-  </div>
-  
-  <div id="controls">
-    <strong>Magnification:</strong>
-    <button onclick="setMag(4)">4x</button>
-    <button onclick="setMag(10)">10x</button>
-    <button onclick="setMag(40)">40x</button>
-    <button onclick="setMag(60)">60x</button>
-  </div>
-  
-  <div id="movement">
-    <strong>Move Stage Micrometer:</strong>
-    <button onclick="moveStage(0, -5)">Up</button>
-    <button onclick="moveStage(0, 5)">Down</button>
-    <button onclick="moveStage(-5, 0)">Left</button>
-    <button onclick="moveStage(5, 0)">Right</button>
-  </div>
-  
-  <div id="steps">
-    <strong>To calibrate:</strong>
-    <ol>
-      <li>Set the magnification desired.</li>
-      <li>Align the '0' of the stage micrometer and the eyepiece graticule.</li>
-      <li>Indicate the number of eyepiece graticule units (eu) that is aligned to the number of stage units (su).</li>
-      <li>Calculate the length of 1 eu in mm.</li>
-      <li>You can change magnification and repeat steps 2 to 4.</li>
-    </ol>
-  </div>
-  
-  <div id="calculations">
-    <p>Step 3: Find the number of eu that is aligned to the number of su.</p>
-    <div><input id="eu" type="number" min="0" step="any"> eu = <input id="su" type="number" min="0" step="any"> su</div>
-    <p>Next, convert su to mm, by referring to the 'slide', look for '1 DIV = 0.01 mm', DIV here refers to 1 su.</p>
-    <div><input id="eu2" type="number" min="0" step="any"> eu = <input id="mm" type="number" min="0" step="any"> mm</div>
-    <p>Next, calculate the length of 1 eu in mm.</p>
-    <div>1 eu = <input id="one_mm" type="number" min="0" step="any"> mm</div>
-    <p>Finally, convert mm to &mu;m (for calibration, it is usually in &mu;m, unless otherwise specified by the question).</p>
-    <div>1 eu = <input id="one_um" type="number" min="0" step="any"> &mu;m</div>
-    <button onclick="checkCalc()">Check my calculations</button>
-    <div id="result"></div>
+
+<div id="scope">
+  <div id="microscope">
+    <canvas id="stage"></canvas>
+    <canvas id="graticule"></canvas>
   </div>
 
-  <script>
-    const canvas = document.getElementById('microscopeView');
-    const ctx = canvas.getContext('2d');
-    const canvasCenterX = canvas.width / 2;
-    const canvasCenterY = canvas.height / 2;
-    const fieldRadius = 180;
-    const scaleLength = fieldRadius * 1.8; // Base scale length for eyepiece
-    const scaleStartX = canvasCenterX - scaleLength / 2;
-    const scaleEndX = canvasCenterX + scaleLength / 2;
-    const totalScalePx = scaleLength;
-    const euSmallPx = totalScalePx / 100;
-    const eyepieceY = canvasCenterY - 20;
-    const baseStageY = canvasCenterY + 20;
+  <h3>Stage movement</h3>
+  <div class="controls">
+    <button onmousedown="startMove(-1,0)">←</button>
+    <button onmousedown="startMove(0,-1)">↑</button>
+    <button onmousedown="startMove(0,1)">↓</button>
+    <button onmousedown="startMove(1,0)">→</button>
+  </div>
 
-    let currentMag = 40;
-    let stageXOffset = 0;
-    let stageYOffset = 0;
+  <h3>Objective lens</h3>
+  <div class="controls" id="objectives"></div>
+</div>
 
-    function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+<div>
+  <h3>Calibration questions</h3>
 
-      // Draw circular field of view
-      ctx.beginPath();
-      ctx.arc(canvasCenterX, canvasCenterY, fieldRadius, 0, Math.PI * 2);
-      ctx.strokeStyle = 'black';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.clip(); // Clip to field of view
+  <p><strong>At <span id="objLabel"></span> objective lens:</strong></p>
 
-      // Eyepiece graticule (fixed, centered)
-      ctx.strokeStyle = 'blue';
-      ctx.lineWidth = 1;
-      // Base line
-      ctx.beginPath();
-      ctx.moveTo(scaleStartX, eyepieceY);
-      ctx.lineTo(scaleEndX, eyepieceY);
-      ctx.stroke();
-      // Ticks and labels
-      for (let i = 0; i <= 100; i++) {
-        const x = scaleStartX + i * euSmallPx;
-        const height = (i % 10 === 0) ? 20 : 10;
-        ctx.beginPath();
-        ctx.moveTo(x, eyepieceY - height / 2);
-        ctx.lineTo(x, eyepieceY + height / 2);
-        ctx.stroke();
-      }
-      for (let j = 0; j <= 10; j++) {
-        const x = scaleStartX + j * 10 * euSmallPx;
-        ctx.fillStyle = 'blue';
-        ctx.fillText(j, x - 5, eyepieceY - 15);
-      }
+  <table>
+    <tr>
+      <td>100 stage units (su)</td>
+      <td>=</td>
+      <td><input id="q1"></td>
+      <td>µm</td>
+    </tr>
+    <tr>
+      <td style="padding-left:30px;">1 su</td>
+      <td>=</td>
+      <td><input id="q2"></td>
+      <td>µm</td>
+    </tr>
+  </table>
+  <div id="f12" class="feedback"></div>
 
-      // Stage micrometer (movable and scalable)
-      const suPer100Eu = 1000 / currentMag; // Number of stage small units per 100 eyepiece units
-      let stageSmallPx;
-      if (currentMag === 4) {
-        // At 4x, 100 stage units = 40 eyepiece units
-        stageSmallPx = (totalScalePx * 0.4) / 100; // 100 stage units over 40% of eyepiece scale
-      } else {
-        stageSmallPx = totalScalePx / suPer100Eu; // Standard scaling for other mags
-      }
-      const stageY = baseStageY + stageYOffset;
-      ctx.strokeStyle = 'red';
-      // Base line
-      ctx.lineWidth = currentMag === 4 ? 0.5 : 1; // Thinner base line at 4x
-      const stageZeroX = scaleStartX + stageXOffset;
-      const startI = Math.max(0, Math.floor((canvasCenterX - fieldRadius - stageZeroX) / stageSmallPx));
-      const endI = Math.min(100, Math.ceil((canvasCenterX + fieldRadius - stageZeroX) / stageSmallPx));
-      const lineStartX = Math.max(canvasCenterX - fieldRadius, stageZeroX);
-      const lineEndX = Math.min(canvasCenterX + fieldRadius, stageZeroX + 100 * stageSmallPx);
-      if (lineStartX < lineEndX) {
-        ctx.beginPath();
-        ctx.moveTo(lineStartX, stageY);
-        ctx.lineTo(lineEndX, stageY);
-        ctx.stroke();
-      }
-      // Ticks (draw all divisions)
-      for (let i = startI; i <= endI; i++) {
-        const x = stageZeroX + i * stageSmallPx;
-        const height = (i % 10 === 0) ? 20 : (currentMag === 4 ? 6 : 10); // Smaller minor ticks at 4x
-        ctx.lineWidth = (currentMag === 4 && i % 10 !== 0) ? 0.3 : (currentMag === 4 ? 0.5 : 1); // Thinner minor ticks at 4x
-        ctx.beginPath();
-        ctx.moveTo(x, stageY - height / 2);
-        ctx.lineTo(x, stageY + height / 2);
-        ctx.stroke();
-      }
+  <p><strong>At line of coincidence:</strong></p>
 
-      ctx.restore(); // Restore context to remove clipping
-    }
+  <table>
+    <tr>
+      <td><input id="q3"></td>
+      <td>eu</td>
+      <td>=</td>
+      <td><input id="q4"></td>
+      <td>su</td>
+    </tr>
+    <tr>
+      <td></td><td></td>
+      <td>=</td>
+      <td><input id="q5"></td>
+      <td>µm</td>
+    </tr>
+    <tr>
+      <td style="padding-left:30px;">1 eu</td>
+      <td></td>
+      <td>=</td>
+      <td><input id="q6"></td>
+      <td>µm</td>
+    </tr>
+  </table>
+  <div id="f3456" class="feedback"></div>
 
-    function setMag(mag) {
-      currentMag = mag;
-      document.getElementById('magDisplay').textContent = `Magnification: ${mag}x`;
-      draw();
-    }
+  <button onclick="checkAnswers()">Check my answers</button>
+</div>
 
-    function moveStage(dx, dy) {
-      stageXOffset += dx;
-      stageYOffset += dy;
-      draw();
-    }
+<script>
+/* ---------- Canvas ---------- */
+const stageCanvas = document.getElementById("stage");
+const gratCanvas  = document.getElementById("graticule");
+stageCanvas.width = gratCanvas.width = 400;
+stageCanvas.height = gratCanvas.height = 400;
+const stage = stageCanvas.getContext("2d");
+const grat  = gratCanvas.getContext("2d");
 
-    function checkCalc() {
-      const eu = parseFloat(document.getElementById('eu').value);
-      const su = parseFloat(document.getElementById('su').value);
-      const eu2 = parseFloat(document.getElementById('eu2').value);
-      const mm = parseFloat(document.getElementById('mm').value);
-      const oneMm = parseFloat(document.getElementById('one_mm').value);
-      const oneUm = parseFloat(document.getElementById('one_um').value);
-      const resultDiv = document.getElementById('result');
+/* ---------- Optical model ---------- */
+const suPer100eu = { 4:250, 10:100, 40:25, 60:16 };
+let objective = 4;
 
-      if (isNaN(eu) || isNaN(su) || isNaN(eu2) || isNaN(mm) || isNaN(oneMm) || isNaN(oneUm)) {
-        resultDiv.textContent = 'Please fill all boxes with numbers.';
-        resultDiv.style.color = 'red';
-        return;
-      }
+/* ---------- Stage movement ---------- */
+let offset = { x:0, y:0 };
+const stepX = 6;
+const stepY = 3;
+let interval=null;
 
-      if (Math.abs(eu - eu2) > 0.001) {
-        resultDiv.textContent = 'The eu counts should match.';
-        resultDiv.style.color = 'red';
-        return;
-      }
+/* ---------- Drawing ---------- */
+function drawGraticule(){
+  grat.clearRect(0,0,400,400);
+  const start=40, end=360, spacing=(end-start)/100;
+  for(let i=0;i<=100;i++){
+    const x=start+i*spacing;
+    const h=i%10===0?26:i%5===0?18:10;
+    grat.beginPath();
+    grat.moveTo(x,200-h/2);
+    grat.lineTo(x,200+h/2);
+    grat.strokeStyle="#000";
+    grat.stroke();
+  }
+}
 
-      const stageSmallMm = 0.01; // 1 DIV = 0.01 mm
-      const expectedMm = su * stageSmallMm;
+function drawStage(){
+  stage.clearRect(0,0,400,400);
+  const pxPerSu = 320 / suPer100eu[objective];
 
-      if (Math.abs(mm - expectedMm) > 0.001) {
-        resultDiv.textContent = 'Try again!';
-        resultDiv.style.color = 'red';
-        return;
-      }
+  for(let i=0;i<=100;i++){
+    const x = 200 + offset.x + (i-50)*pxPerSu;
+    const y = 200 + offset.y;
+    if(x<-50||x>450) continue;
+    const h=i%10===0?34:i%5===0?24:14;
+    stage.beginPath();
+    stage.moveTo(x,y-h/2);
+    stage.lineTo(x,y+h/2);
+    stage.strokeStyle="#444";
+    stage.stroke();
+  }
+}
 
-      const expectedOneMm = mm / eu;
+function redraw(){
+  drawStage();
+  drawGraticule();
+  document.getElementById("objLabel").textContent = objective+"×";
+}
 
-      if (Math.abs(oneMm - expectedOneMm) > 0.0001) {
-        resultDiv.textContent = 'Try again!';
-        resultDiv.style.color = 'red';
-        return;
-      }
+/* ---------- Movement ---------- */
+function startMove(dx,dy){
+  move(dx,dy);
+  interval=setInterval(()=>move(dx,dy),60);
+}
+function move(dx,dy){
+  offset.x+=dx*stepX;
+  offset.y+=dy*stepY;
+  offset.x=Math.max(-300,Math.min(300,offset.x));
+  offset.y=Math.max(-80,Math.min(80,offset.y));
+  redraw();
+}
+document.onmouseup=()=>clearInterval(interval);
 
-      const expectedOneUm = oneMm * 1000;
+/* ---------- Objective buttons ---------- */
+const objDiv=document.getElementById("objectives");
+[4,10,40,60].forEach(o=>{
+  const b=document.createElement("button");
+  b.textContent=o+"×";
+  b.onclick=()=>{
+    objective=o;
+    redraw();
+    [...objDiv.children].forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+  };
+  if(o===objective) b.classList.add("active");
+  objDiv.appendChild(b);
+});
 
-      if (Math.abs(oneUm - expectedOneUm) > 0.1) {
-        resultDiv.textContent = 'Try again!';
-        resultDiv.style.color = 'red';
-        return;
-      }
+/* ---------- Checking ---------- */
+function checkAnswers(){
+  const f12=document.getElementById("f12");
+  const f3456=document.getElementById("f3456");
+  f12.innerHTML=f3456.innerHTML="";
+  const suUm=10;
 
-      resultDiv.textContent = "That's right!";
-      resultDiv.style.color = 'green';
-    }
+  if(+q1.value!==1000) f12.innerHTML+="<div class='wrong'>100 su ≠ 1000 µm</div>";
+  if(+q2.value!==10) f12.innerHTML+="<div class='wrong'>1 su ≠ 10 µm</div>";
+  if(f12.innerHTML==="") f12.innerHTML="<div class='correct'>✔ Correct</div>";
 
-    // Initial draw
-    draw();
-  </script>
+  const eu=+q3.value, su=+q4.value;
+  if(q5.value!=su*suUm) f3456.innerHTML+="<div class='wrong'>su → µm error</div>";
+  if(q6.value!=(su*suUm/eu)) f3456.innerHTML+="<div class='wrong'>eu calibration incorrect</div>";
+  if(f3456.innerHTML==="") f3456.innerHTML="<div class='correct'>✔ Correct</div>";
+}
+
+/* ---------- Init ---------- */
+redraw();
+</script>
+
 </body>
 </html>
