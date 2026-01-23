@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evolutionary Drift - High Visibility</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --text-color: #e0e0e0;
+            --card-bg: #1e1e1e;
+            --canvas-bg: #1a1a1a; /* Lighter than black for contrast */
+            --accent-blue: #00B0FF;
+            --accent-orange: #FF9100;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 10px;
+        }
+
+        h1 { margin: 10px 0 5px 0; color: #fff; letter-spacing: 1px; }
+        p.subtitle { margin-bottom: 20px; color: #aaa; text-align: center; max-width: 800px; font-size: 0.9em;}
+
+        /* --- BALANCED LAYOUT --- */
+        .experiment-container {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            width: 100%;
+            max-width: 1300px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 12px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            text-align: center;
+            border: 1px solid #333;
+            flex-shrink: 0; 
+        }
+
+        /* Larger area for cells */
+        .card-cells { width: 420px; }
+        
+        /* Smaller area for the graph */
+        .card-graph { 
+            width: 280px; 
+            height: 420px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        canvas {
+            background-color: var(--canvas-bg);
+            border: 1px solid #444;
+            border-radius: 4px;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .header-1 { color: var(--accent-blue); margin-bottom: 5px; }
+        .header-2 { color: var(--accent-orange); margin-bottom: 5px; }
+
+        .stats-box {
+            font-family: monospace;
+            font-size: 0.9em;
+            margin-top: 10px;
+            display: flex;
+            justify-content: space-between;
+            color: #eee;
+            padding: 0 10px;
+        }
+
+        /* Controls */
+        .controls-panel {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 900px;
+            margin-top: 20px;
+            border: 1px solid #333;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+
+        .control-group { display: flex; flex-direction: column; gap: 5px; }
+        label { font-weight: 700; font-size: 0.85rem; color: #fff; }
+        .sub-label { font-size: 0.75rem; color: #888; margin-bottom: 3px;}
+        
+        input[type=range] { width: 100%; cursor: pointer; accent-color: #555; }
+        .value-display { font-weight: bold; color: #fff; font-size: 0.9rem; }
+
+        .btn-row {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            padding-top: 15px;
+            margin-top: 10px;
+            border-top: 1px solid #333;
+        }
+
+        button {
+            padding: 10px 25px;
+            border: none;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        button:hover { transform: scale(1.05); }
+        #playBtn { background-color: #2e7d32; color: white; }
+        #resetBtn { background-color: #c62828; color: white; }
+
+        /* Legend */
+        .legend-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 10px;
+            font-size: 0.85em;
+            background: #222;
+            padding: 8px 20px;
+            border-radius: 20px;
+            border: 1px solid #444;
+        }
+        .gradient-bar {
+            width: 200px; height: 12px;
+            background: linear-gradient(to right, #00B0FF 0%, #ffffff 25%, #ff4081 50%, #7b1fa2 75%, #311b92 100%);
+            display: inline-block;
+            border-radius: 6px;
+            margin: 0 10px;
+        }
+        .legend-text { color: #ccc; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h1>Evolutionary Drift Simulation</h1>
+    <p class="subtitle">Populations at 400 cells with turnover. Darker purple cells indicate higher mutation accumulation (Muller's Ratchet).</p>
+
+    <div class="legend-container">
+        <span class="legend-text">0 Mut</span>
+        <div class="gradient-bar"></div>
+        <span class="legend-text">High Mut (Purple)</span>
+    </div>
+
+    <div class="experiment-container">
+        
+        <div class="card card-cells">
+            <h3 class="header-1">Cell Type 1</h3>
+            <canvas id="canvas1" width="400" height="350"></canvas>
+            <div class="stats-box">
+                <span id="pop1">Pop: 0</span>
+                <span id="avgMut1">Avg Mut: 0.0</span>
+            </div>
+        </div>
+
+        <div class="card card-graph">
+            <h4 style="margin:0 0 10px 0; color:#eee; font-size: 0.9em;">Total Mutation Load</h4>
+            <canvas id="graphCanvas" width="250" height="300"></canvas>
+        </div>
+
+        <div class="card card-cells">
+            <h3 class="header-2">Cell Type 2</h3>
+            <canvas id="canvas2" width="400" height="350"></canvas>
+            <div class="stats-box">
+                <span id="pop2">Pop: 0</span>
+                <span id="avgMut2">Avg Mut: 0.0</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls-panel">
+        <div class="controls-grid">
+            <div class="control-group" style="border-right: 1px solid #333; padding-right: 15px;">
+                <label style="color: var(--accent-blue)">Generation Time 1</label>
+                <div class="sub-label">Generation Time</div>
+                <input type="range" id="genTime1" min="10" max="600" step="10" value="30">
+                <div class="value-display" id="valGen1">30 (Mins)</div>
+            </div>
+
+            <div class="control-group" style="text-align: center;">
+                <label>Mutation Probability</label>
+                <div class="sub-label">Chance per division</div>
+                <input type="range" id="mutChance" min="0.5" max="10" step="0.5" value="2">
+                <div class="value-display" id="valMut">2%</div>
+                <br>
+                <label>Playback Speed</label>
+                <input type="range" id="simSpeed" min="0.5" max="4" step="0.5" value="1">
+            </div>
+
+            <div class="control-group" style="border-left: 1px solid #333; padding-left: 15px;">
+                <label style="color: var(--accent-orange)">Generation Time 2</label>
+                <div class="sub-label">Generation Time</div>
+                <input type="range" id="genTime2" min="10" max="600" step="10" value="120">
+                <div class="value-display" id="valGen2">120 (Mins)</div>
+            </div>
+        </div>
+
+        <div class="btn-row">
+            <button id="playBtn">Run Experiment</button>
+            <button id="resetBtn">Reset</button>
+        </div>
+    </div>
+
+<script>
+const MAX_POPULATION = 400; 
+const CELL_RADIUS = 6;      
+const COLORS = { type1Hue: 200, type2Hue: 35 };
+
+const state = {
+    running: false,
+    frames: 0,
+    speedMultiplier: 1,
+    cells1: [],
+    cells2: [],
+    history: { t1: [], t2: [] },
+    params: { genTime1: 30, genTime2: 120, mutationRate: 0.02 }
+};
+
+let animId;
+const ctx1 = document.getElementById('canvas1').getContext('2d');
+const ctx2 = document.getElementById('canvas2').getContext('2d');
+const ctxGraph = document.getElementById('graphCanvas').getContext('2d');
+
+class Cell {
+    constructor(type, x, y, mutations = 0) {
+        this.type = type;
+        this.x = x;
+        this.y = y;
+        this.mutations = mutations;
+        this.age = 0;
+        const angle = Math.random() * 6.28;
+        this.vx = Math.cos(angle) * 0.5; 
+        this.vy = Math.sin(angle) * 0.5;
+    }
+    update(w, h, genTime) {
+        const spd = state.speedMultiplier;
+        this.x += this.vx * spd;
+        this.y += this.vy * spd;
+        if(this.x < 0 || this.x > w) this.vx *= -1;
+        if(this.y < 0 || this.y > h) this.vy *= -1;
+        this.age += spd;
+        if (this.age > genTime) {
+            this.age = 0;
+            return this.divide();
+        }
+        return null;
+    }
+    divide() {
+        let newMut = this.mutations;
+        if (Math.random() < state.params.mutationRate) newMut++;
+        return new Cell(this.type, this.x + (Math.random()*12-6), this.y + (Math.random()*12-6), newMut);
+    }
+}
+
+function init() {
+    state.cells1 = []; state.cells2 = [];
+    state.history = { t1: [], t2: [] };
+    state.frames = 0;
+    for(let i=0; i<8; i++) {
+        state.cells1.push(new Cell(1, 200, 175));
+        state.cells2.push(new Cell(2, 200, 175));
+    }
+    render();
+}
+
+function updatePopulation(cells, babies, maxPop) {
+    let nextGen = cells.concat(babies);
+    while (nextGen.length > maxPop) {
+        const indexToKill = Math.floor(Math.random() * nextGen.length);
+        nextGen.splice(indexToKill, 1);
+    }
+    return nextGen;
+}
+
+function update() {
+    if (!state.running) return;
+    state.frames++;
+    let babies1 = [];
+    state.cells1.forEach(c => {
+        let b = c.update(400, 350, state.params.genTime1);
+        if(b) babies1.push(b);
+    });
+    state.cells1 = updatePopulation(state.cells1, babies1, MAX_POPULATION);
+    let babies2 = [];
+    state.cells2.forEach(c => {
+        let b = c.update(400, 350, state.params.genTime2);
+        if(b) babies2.push(b);
+    });
+    state.cells2 = updatePopulation(state.cells2, babies2, MAX_POPULATION);
+    if(state.frames % 15 === 0) updateGraphData();
+    render();
+    animId = requestAnimationFrame(update);
+}
+
+function updateGraphData() {
+    let sum1 = 0; for(let c of state.cells1) sum1 += c.mutations;
+    let sum2 = 0; for(let c of state.cells2) sum2 += c.mutations;
+    state.history.t1.push(sum1);
+    state.history.t2.push(sum2);
+    if(state.history.t1.length > 200) { state.history.t1.shift(); state.history.t2.shift(); }
+}
+
+function render() {
+    drawPopulation(ctx1, state.cells1, COLORS.type1Hue);
+    drawPopulation(ctx2, state.cells2, COLORS.type2Hue);
+    const sum1 = state.cells1.reduce((a, b) => a + b.mutations, 0);
+    const avg1 = state.cells1.length ? (sum1 / state.cells1.length).toFixed(1) : 0;
+    const sum2 = state.cells2.reduce((a, b) => a + b.mutations, 0);
+    const avg2 = state.cells2.length ? (sum2 / state.cells2.length).toFixed(1) : 0;
+    document.getElementById('pop1').innerText = `Pop: ${state.cells1.length}`;
+    document.getElementById('avgMut1').innerText = `Avg Mut: ${avg1}`;
+    document.getElementById('pop2').innerText = `Pop: ${state.cells2.length}`;
+    document.getElementById('avgMut2').innerText = `Avg Mut: ${avg2}`;
+    drawGraph();
+}
+
+function drawPopulation(ctx, cells, baseHue) {
+    ctx.fillStyle = '#1a1a1a'; // Charcoal Gray Background
+    ctx.fillRect(0, 0, 400, 350);
+    for (let c of cells) {
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, CELL_RADIUS, 0, 6.28);
+        if (c.mutations === 0) {
+            ctx.fillStyle = `hsl(${baseHue}, 100%, 50%)`;
+        } else if (c.mutations === 1) {
+            ctx.fillStyle = '#ffffff'; 
+        } else {
+            const intensity = Math.min(c.mutations - 1, 8); 
+            const lit = Math.max(20, 70 - (intensity * 8)); // Floor at 20% lightness
+            const hue = 300 - (intensity * 5); // Shift from Magenta to Deep Blue/Purple
+            ctx.fillStyle = `hsl(${hue}, 100%, ${lit}%)`;
+        }
+        ctx.fill();
+        // Visible outline for contrast
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+}
+
+function drawGraph() {
+    ctxGraph.fillStyle = '#1e1e1e';
+    ctxGraph.fillRect(0,0, 250, 300);
+    const W = 250, H = 300, pad = 30;
+    ctxGraph.strokeStyle = '#444';
+    ctxGraph.beginPath(); ctxGraph.moveTo(pad, pad); ctxGraph.lineTo(pad, H-pad); ctxGraph.lineTo(W-pad, H-pad); ctxGraph.stroke();
+    if (state.history.t1.length < 2) return;
+    const maxVal = Math.max(50, ...state.history.t1, ...state.history.t2);
+    const stepX = (W - 2*pad) / state.history.t1.length;
+    const scaleY = (H - 2*pad) / maxVal;
+    const plot = (data, hue) => {
+        ctxGraph.beginPath();
+        ctxGraph.strokeStyle = `hsl(${hue}, 100%, 50%)`;
+        ctxGraph.lineWidth = 2;
+        for(let i=0; i<data.length; i++) {
+            const x = pad + (i*stepX);
+            const y = (H-pad) - (data[i] * scaleY);
+            if(i===0) ctxGraph.moveTo(x,y); else ctxGraph.lineTo(x,y);
+        }
+        ctxGraph.stroke();
+    };
+    plot(state.history.t1, COLORS.type1Hue);
+    plot(state.history.t2, COLORS.type2Hue);
+}
+
+const playBtn = document.getElementById('playBtn');
+playBtn.addEventListener('click', () => {
+    state.running = !state.running;
+    playBtn.innerText = state.running ? "Pause" : "Resume";
+    if (state.running) update();
+});
+document.getElementById('resetBtn').addEventListener('click', () => {
+    state.running = false; cancelAnimationFrame(animId); playBtn.innerText = "Run Experiment"; init();
+});
+function updateLabel(id, val) { document.getElementById(id).innerText = val; }
+document.getElementById('genTime1').addEventListener('input', (e) => {
+    state.params.genTime1 = parseInt(e.target.value); updateLabel('valGen1', `${state.params.genTime1} (Mins)`);
+});
+document.getElementById('genTime2').addEventListener('input', (e) => {
+    state.params.genTime2 = parseInt(e.target.value); updateLabel('valGen2', `${state.params.genTime2} (Mins)`);
+});
+document.getElementById('mutChance').addEventListener('input', (e) => {
+    state.params.mutationRate = parseFloat(e.target.value) / 100; updateLabel('valMut', `${e.target.value}%`);
+});
+document.getElementById('simSpeed').addEventListener('input', (e) => {
+    state.speedMultiplier = parseFloat(e.target.value);
+});
+init();
+</script>
+</body>
+</html>
