@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>H2 Geo: Tropical Wind & Rainfall Dynamics</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg: #020617;
+            --panel: #0f172a;
+            --accent: #38bdf8;
+            --land: #ffffff;
+            --c-sea: #10b981; 
+            --c-wpac: #0ea5e9; 
+            --c-sam: #f59e0b;
+        }
+
+        body, html { margin: 0; padding: 0; height: 100vh; font-family: 'Inter', sans-serif; background: var(--bg); color: #f8fafc; overflow: hidden; }
+        .layout { display: flex; height: 100vh; width: 100vw; }
+
+        #sidebar {
+            width: 300px; background: var(--panel); border-right: 1px solid #334155;
+            padding: 20px; display: flex; flex-direction: column; gap: 15px; flex-shrink: 0;
+        }
+
+        h1 { font-size: 1.1rem; color: var(--accent); margin: 0; font-weight: 900; }
+        .group { background: #1e293b; padding: 12px; border-radius: 8px; border: 1px solid #334155; }
+        h2 { font-size: 0.7rem; text-transform: uppercase; color: #94a3b8; margin: 0 0 10px 0; }
+
+        .btn-row { display: flex; gap: 4px; margin-bottom: 8px; }
+        button {
+            flex: 1; background: #0f172a; border: 1px solid #334155; color: white; padding: 8px 2px; 
+            border-radius: 4px; cursor: pointer; font-size: 0.65rem; transition: 0.2s;
+        }
+        button.active { background: var(--accent); color: #000; font-weight: bold; }
+
+        input[type="range"] { width: 100%; accent-color: var(--accent); }
+        label { display: block; font-size: 0.7rem; margin-bottom: 4px; color: #cbd5e1; }
+
+        #content { flex-grow: 1; display: flex; flex-direction: column; height: 100vh; }
+        
+        #map-box { height: 75%; position: relative; background: #020617; }
+        #graph-box { height: 25%; background: #000; padding: 15px 25px; border-top: 1px solid #334155; box-sizing: border-box; }
+
+        canvas { width: 100%; height: 100%; }
+
+        .region-tag {
+            position: absolute; font-size: 0.65rem; font-weight: 800; padding: 2px 6px;
+            border-radius: 4px; background: rgba(0,0,0,0.8); text-transform: uppercase;
+            border: 1px solid currentColor; pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="layout">
+    <div id="sidebar">
+        <h1>Tropical Dynamics</h1>
+        <p style="font-size:0.7rem; color:#94a3b8; margin:0;">Atmospheric Circulation Lab</p>
+
+        <div class="group">
+            <h2>Season (ITCZ Position)</h2>
+            <div class="btn-row">
+                <button id="monSum" onclick="setSeason('summer')">NH Summer</button>
+                <button id="monWin" onclick="setSeason('winter')" class="active">NH Winter</button>
+            </div>
+            <label>PGF Intensity: <span id="v-pgf">60%</span></label>
+            <input type="range" id="pgf" min="20" max="100" value="60" oninput="updateUI()">
+        </div>
+
+        <div class="group">
+            <h2>ENSO State</h2>
+            <div class="btn-row">
+                <button id="e-nino" onclick="setENSO('nino')">El Niño</button>
+                <button id="e-neut" onclick="setENSO('neutral')" class="active">Neutral</button>
+                <button id="e-nina" onclick="setENSO('nina')">La Niña</button>
+            </div>
+            <p id="enso-status" style="font-size:0.65rem; color:var(--accent);">Walker Cell: Convergent uplift over SE Asia.</p>
+        </div>
+
+        <button onclick="location.reload()" style="background:#334155; margin-top:auto; padding:10px; color:white; border:none; border-radius:4px; cursor:pointer;">Reset View</button>
+    </div>
+
+    <div id="content">
+        <div id="map-box">
+            <canvas id="mapCanvas"></canvas>
+            <div class="region-tag" style="top:52%; left:76%; color:var(--c-sea)">Southeast Asia</div>
+            <div class="region-tag" style="top:44%; left:88%; color:var(--c-wpac)">W. Pacific</div>
+            <div class="region-tag" style="top:65%; left:26%; color:var(--c-sam)">South America</div>
+        </div>
+        <div id="graph-box">
+            <canvas id="rainChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<script>
+const landmasses = [
+    {n: "Americas", p: [[5,15],[15,10],[25,10],[28,25],[25,45],[35,60],[38,85],[25,90],[15,60],[8,40]]},
+    {n: "Africa", p: [[45,35],[55,32],[62,35],[65,45],[60,75],[55,85],[48,82],[42,65],[40,45],[42,38]]},
+    {n: "Eurasia", p: [[42,32],[50,15],[60,10],[80,8],[95,15],[92,35],[85,45],[78,48],[72,40],[65,48],[60,35]]},
+    {n: "Maritime", p: [[74,54],[78,52],[84,55],[86,62],[80,65],[74,60]]},
+    {n: "Australia", p: [[80,75],[92,72],[95,85],[88,92],[80,88],[75,82]]}
+];
+
+const state = { season: 'winter', enso: 'neutral', pgf: 60, time: 0 };
+const regions = {
+    sea: { x: 0.78, y: 0.58, color: '#10b981', rain: 60 },
+    wpac: { x: 0.90, y: 0.48, color: '#0ea5e9', rain: 45 },
+    sam: { x: 0.28, y: 0.68, color: '#f59e0b', rain: 20 }
+};
+
+let particles = Array.from({length: 350}, () => ({
+    x: Math.random() * 100, y: Math.random() * 100, 
+    history: [], len: 10, age: Math.random() * 200
+}));
+
+const canvas = document.getElementById('mapCanvas');
+const ctx = canvas.getContext('2d');
+let rainChart;
+
+function init() {
+    window.addEventListener('resize', resize);
+    resize();
+    initChart();
+    animate();
+}
+
+function resize() {
+    canvas.width = canvas.parentElement.clientWidth;
+    canvas.height = canvas.parentElement.clientHeight;
+}
+
+function initChart() {
+    const ctxC = document.getElementById('rainChart').getContext('2d');
+    rainChart = new Chart(ctxC, {
+        type: 'line',
+        data: {
+            labels: Array(50).fill(''),
+            datasets: [
+                { label: 'SE Asia', borderColor: '#10b981', data: [], borderWidth: 2, pointRadius: 0, tension: 0.4 },
+                { label: 'W. Pacific', borderColor: '#0ea5e9', data: [], borderWidth: 2, pointRadius: 0, tension: 0.4 },
+                { label: 'S. America', borderColor: '#f59e0b', data: [], borderWidth: 2, pointRadius: 0, tension: 0.4 }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: {
+                y: { 
+                    min: 0, max: 100, 
+                    title: { display: true, text: 'Rainfall Intensity (mm)', color: '#94a3b8', font: {size: 11, weight: 'bold'} },
+                    ticks: {color: '#64748b'} 
+                },
+                x: { 
+                    title: { display: true, text: 'Simulation Time (Continuous)', color: '#94a3b8', font: {size: 11, weight: 'bold'} },
+                    ticks: {display: false} 
+                }
+            },
+            plugins: { legend: { labels: {color: '#fff', font: {size: 10}} } }
+        }
+    });
+}
+
+function animate() {
+    state.time += 0.05;
+    ctx.fillStyle = "#020617";
+    ctx.fillRect(0,0, canvas.width, canvas.height);
+    
+    ctx.fillStyle = "#ffffff";
+    landmasses.forEach(l => {
+        ctx.beginPath();
+        l.p.forEach((pt, i) => {
+            const px = pt[0] * (canvas.width/100);
+            const py = pt[1] * (canvas.height/100);
+            if(i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        });
+        ctx.closePath(); ctx.fill();
+    });
+
+    particles.forEach(p => {
+        let vx = -0.45;
+        if(state.enso === 'nino') vx = -0.12;
+        if(state.enso === 'nina') vx = -0.75;
+
+        let itcz = (state.season === 'summer' ? 38 : 62);
+        let vy = (itcz - p.y) * 0.018 * (state.pgf/50);
+
+        if(p.y < 50) vx += 0.07; else vx -= 0.07;
+
+        p.x += vx; p.y += vy;
+        p.age++;
+
+        if(p.x < 0 || p.age > 200 || Math.abs(p.y - itcz) < 0.3) {
+            p.x = 100; p.y = Math.random() * 100; p.history = []; p.age = 0;
+        }
+
+        p.history.push({x: p.x, y: p.y});
+        if(p.history.length > p.len) p.history.shift();
+
+        ctx.beginPath();
+        ctx.strokeStyle = "rgba(56, 189, 248, 0.35)";
+        ctx.lineWidth = 1.3;
+        p.history.forEach((h, i) => {
+            if(i===0) ctx.moveTo(h.x*(canvas.width/100), h.y*(canvas.height/100));
+            else ctx.lineTo(h.x*(canvas.width/100), h.y*(canvas.height/100));
+        });
+        ctx.stroke();
+
+        if(p.history.length > 1) {
+            ctx.fillStyle = "rgba(56, 189, 248, 0.7)";
+            ctx.beginPath(); ctx.arc(p.x*(canvas.width/100), p.y*(canvas.height/100), 1.4, 0, Math.PI*2); ctx.fill();
+        }
+    });
+
+    updateAtmosphere();
+    requestAnimationFrame(animate);
+}
+
+function updateAtmosphere() {
+    let rs = 65, rw = 50, rm = 20;
+    if(state.enso === 'nino') { rs -= 40; rw -= 30; rm += 55; }
+    if(state.enso === 'nina') { rs += 25; rw += 20; rm -= 10; }
+    
+    regions.sea.rain = rs + Math.sin(state.time)*4;
+    regions.wpac.rain = rw + Math.sin(state.time+1)*3;
+    regions.sam.rain = rm + Math.cos(state.time)*3;
+
+    Object.values(regions).forEach(r => {
+        let g = ctx.createRadialGradient(r.x*canvas.width, r.y*canvas.height, 0, r.x*canvas.width, r.y*canvas.height, r.rain*1.8);
+        g.addColorStop(0, r.color + '55');
+        g.addColorStop(1, 'transparent');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(r.x*canvas.width, r.y*canvas.height, r.rain*1.8, 0, Math.PI*2); ctx.fill();
+    });
+
+    if(Math.floor(state.time*10) % 5 === 0) {
+        rainChart.data.datasets[0].data.push(regions.sea.rain);
+        rainChart.data.datasets[1].data.push(regions.wpac.rain);
+        rainChart.data.datasets[2].data.push(regions.sam.rain);
+        if(rainChart.data.datasets[0].data.length > 50) rainChart.data.datasets.forEach(d => d.data.shift());
+        rainChart.update('none');
+    }
+}
+
+function setSeason(s) {
+    state.season = s;
+    document.getElementById('monSum').classList.toggle('active', s==='summer');
+    document.getElementById('monWin').classList.toggle('active', s==='winter');
+}
+
+function setENSO(e) {
+    state.enso = e;
+    document.getElementById('e-nino').classList.toggle('active', e==='nino');
+    document.getElementById('e-neut').classList.toggle('active', e==='neutral');
+    document.getElementById('e-nina').classList.toggle('active', e==='nina');
+    const d = { neutral: "Neutral: Convergent uplift over SE Asia.", nino: "El Niño: Trades collapse. Rain shifts to E. Pacific.", nina: "La Niña: Intensified Trades. Heavy rain in SE Asia." };
+    document.getElementById('enso-status').innerText = d[e];
+}
+
+function updateUI() {
+    state.pgf = document.getElementById('pgf').value;
+    document.getElementById('v-pgf').innerText = state.pgf + "%";
+}
+
+init();
+</script>
+</body>
+</html>
