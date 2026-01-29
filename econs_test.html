@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>H2 Econ Sim: Market Equilibrium</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #3498db;
+            --bg: #f4f7f6;
+            --panel-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--primary);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        header {
+            background: var(--primary);
+            color: white;
+            padding: 1rem 2rem;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .main-container {
+            display: grid;
+            grid-template-columns: 250px 1fr 350px;
+            gap: 20px;
+            padding: 20px;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+
+        /* Left Panel: Sliders */
+        .panel {
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .slider-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .val-display {
+            float: right;
+            color: var(--accent);
+        }
+
+        button {
+            padding: 10px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        /* Center Panel: Graph */
+        #graph-container {
+            position: relative;
+            min-height: 400px;
+        }
+
+        /* Right Panel: AI Explanation */
+        .ai-panel {
+            display: flex;
+            flex-direction: column;
+        }
+
+        #ai-output {
+            background: #f9f9f9;
+            border-left: 4px solid var(--accent);
+            padding: 15px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            flex-grow: 1;
+            margin-bottom: 15px;
+            overflow-y: auto;
+        }
+
+        .btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .stats {
+            margin-top: 10px;
+            font-size: 0.85rem;
+            background: #eee;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        h3 { margin-top: 0; font-size: 1.1rem; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Market Equilibrium Simulation</h1>
+</header>
+
+<div class="main-container">
+    <section class="panel">
+        <h3>Determinants</h3>
+        
+        <div class="slider-group">
+            <label>Income (I) <span class="val-display" id="v-income">0</span></label>
+            <input type="range" id="income" min="-20" max="20" value="0" step="1">
+            <small>Affects Demand (Normal Good)</small>
+        </div>
+
+        <div class="slider-group">
+            <label>Production Cost (C) <span class="val-display" id="v-cost">0</span></label>
+            <input type="range" id="cost" min="-20" max="20" value="0" step="1">
+            <small>Unit cost of factors</small>
+        </div>
+
+        <div class="slider-group">
+            <label>Indirect Tax (T) <span class="val-display" id="v-tax">0</span></label>
+            <input type="range" id="tax" min="0" max="20" value="0" step="1">
+            <small>Specific tax per unit</small>
+        </div>
+
+        <button onclick="resetSliders()">Reset Market</button>
+
+        <div class="stats">
+            <strong>Current Equilibrium:</strong><br>
+            Price (P*): <span id="p-star">40.00</span><br>
+            Quantity (Q*): <span id="q-star">60.00</span>
+        </div>
+    </section>
+
+    <section class="panel" id="graph-container">
+        <canvas id="marketChart"></canvas>
+    </section>
+
+    <section class="panel ai-panel">
+        <h3>AI Tutor Analysis</h3>
+        <div id="ai-output">
+            Welcome. Adjust the sliders to see how non-price determinants shift the market equilibrium.
+        </div>
+        <div class="btn-group">
+            <button onclick="requestAI('more')">Explain More</button>
+            <button onclick="requestAI('exam')">H2 Exam Language</button>
+        </div>
+    </section>
+</div>
+
+<script>
+    // --- Configuration & Constants ---
+    const params = { a: 100, b: 2, c: 20, d: 2, alpha: 2, beta: 2 };
+    let chart;
+
+    // --- Core Economics Logic ---
+    function calculateEquilibrium() {
+        const I = parseFloat(document.getElementById('income').value);
+        const C = parseFloat(document.getElementById('cost').value);
+        const T = parseFloat(document.getElementById('tax').value);
+
+        // Equilibrium P* calculation derived from Qd = Qs
+        // 100 - 2P + 2I = 20 + 2(P - T) - 2C
+        // 80 + 2I + 2T + 2C = 4P
+        const P_star = 20 + 0.5 * I + 0.5 * T + 0.5 * C;
+        const Q_star = 60 + I - T - C;
+
+        return { P_star, Q_star, I, C, T };
+    }
+
+    // Generate coordinates for Demand/Supply lines
+    // P = (a + alpha*I - Q) / b
+    // P = (Q - c + d*T + beta*C) / d
+    function getLineData(eq) {
+        const labels = [];
+        const demandPoints = [];
+        const supplyPoints = [];
+
+        for (let q = 0; q <= 140; q += 10) {
+            labels.push(q);
+            let pd = (params.a + params.alpha * eq.I - q) / params.b;
+            let ps = (q - params.c + params.d * eq.T + params.beta * eq.C) / params.d;
+            
+            demandPoints.push({x: q, y: Math.max(0, pd)});
+            supplyPoints.push({x: q, y: Math.max(0, ps)});
+        }
+        return { demandPoints, supplyPoints };
+    }
+
+    // --- UI & Graphing ---
+    function initChart() {
+        const ctx = document.getElementById('marketChart').getContext('2d');
+        chart = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    { label: 'Demand (D)', data: [], borderColor: 'red', showLine: true, pointRadius: 0 },
+                    { label: 'Supply (S)', data: [], borderColor: 'blue', showLine: true, pointRadius: 0 },
+                    { label: 'Equilibrium', data: [], backgroundColor: 'green', pointRadius: 6, pointHoverRadius: 8 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { type: 'linear', position: 'bottom', title: { display: true, text: 'Quantity (Q)' }, min: 0, max: 120 },
+                    y: { title: { display: true, text: 'Price (P)' }, min: 0, max: 80 }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => `(${ctx.raw.x.toFixed(2)}, ${ctx.raw.y.toFixed(2)})`
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function updateUI() {
+        const eq = calculateEquilibrium();
+        const lines = getLineData(eq);
+
+        // Update Labels
+        document.getElementById('v-income').innerText = eq.I;
+        document.getElementById('v-cost').innerText = eq.C;
+        document.getElementById('v-tax').innerText = eq.T;
+        document.getElementById('p-star').innerText = eq.P_star.toFixed(2);
+        document.getElementById('q-star').innerText = eq.Q_star.toFixed(2);
+
+        // Update Chart
+        chart.data.datasets[0].data = lines.demandPoints;
+        chart.data.datasets[1].data = lines.supplyPoints;
+        chart.data.datasets[2].data = [{x: eq.Q_star, y: eq.P_star}];
+        chart.update();
+
+        // Basic AI Trigger (Default explanation)
+        requestAI('basic');
+    }
+
+    // --- Mock AI Adaptive Logic ---
+    function requestAI(mode) {
+        const eq = calculateEquilibrium();
+        const output = document.getElementById('ai-output');
+        
+        // Placeholder for real AI API call
+        // In reality: fetch('/api/explain', { method: 'POST', body: JSON.stringify({eq, mode}) })
+        const response = simulateAIModel(eq, mode);
+        output.innerHTML = response;
+    }
+
+    function simulateAIModel(eq, mode) {
+        let text = "";
+        const d_shift = eq.I > 0 ? "increase" : (eq.I < 0 ? "decrease" : "stable");
+        const s_shift = (eq.C > 0 || eq.T > 0) ? "decrease" : (eq.C < 0 ? "increase" : "stable");
+
+        if (mode === 'basic') {
+            text = `<strong>Current Scenario:</strong> `;
+            if (eq.I === 0 && eq.C === 0 && eq.T === 0) return "The market is at initial equilibrium. Adjust sliders to begin analysis.";
+            text += `A change in ${d_shift !== 'stable' ? 'Income' : ''} ${d_shift !== 'stable' && s_shift !== 'stable' ? 'and' : ''} ${s_shift !== 'stable' ? 'Supply determinants' : ''} has shifted the curves. `;
+            text += `New equilibrium is reached at P=$${eq.P_star.toFixed(2)} and Q=${eq.Q_star.toFixed(2)} units.`;
+        } 
+        
+        else if (mode === 'more') {
+            text = `<h3>Detailed Step-by-Step</h3>`;
+            if (eq.I !== 0) text += `<p>• <strong>Demand:</strong> An ${eq.I > 0 ? 'increase' : 'decrease'} in consumer income causes the Demand curve to shift ${eq.I > 0 ? 'rightward' : 'leftward'}, as the good is assumed to be normal.</p>`;
+            if (eq.C !== 0 || eq.T !== 0) text += `<p>• <strong>Supply:</strong> ${eq.C > 0 || eq.T > 0 ? 'Higher' : 'Lower'} production costs or taxes shift the Supply curve ${eq.C > 0 || eq.T > 0 ? 'leftward' : 'rightward'}.</p>`;
+            text += `<p>• <strong>Market Process:</strong> At the old price, a ${eq.P_star > 40 ? 'shortage' : 'surplus'} would occur, putting ${eq.P_star > 40 ? 'upward' : 'downward'} pressure on prices until a new equilibrium is established.</p>`;
+        } 
+        
+        else if (mode === 'exam') {
+            text = `<h3>H2 Model Answer</h3>`;
+            text += `<p><em>"Ceteris paribus, a change in ${eq.I !== 0 ? 'tastes/income' : 'cost of production'} results in a rightward shift of the ${eq.I !== 0 ? 'Demand' : 'Supply'} curve. At the initial price level, quantity demanded exceeds quantity supplied, creating a <strong>shortage</strong>. This induces an upward pressure on price. As price rises, quantity demanded falls (law of demand) and quantity supplied rises (law of supply). This process continues until a new equilibrium is reached at a higher price and quantity..."</em></p>`;
+        }
+
+        return text;
+    }
+
+    function resetSliders() {
+        document.getElementById('income').value = 0;
+        document.getElementById('cost').value = 0;
+        document.getElementById('tax').value = 0;
+        updateUI();
+    }
+
+    // Event Listeners
+    document.querySelectorAll('input').forEach(input => {
+        input.addEventListener('input', updateUI);
+    });
+
+    // Start
+    window.onload = () => {
+        initChart();
+        updateUI();
+    };
+</script>
+
+</body>
+</html>
