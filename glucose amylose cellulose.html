@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Glucose & Polysaccharides</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap');
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  :root{--bg:#0f1117;--surface:#181c27;--surface2:#1f2535;--border:#2a3045;--accent:#4f9cf9;--accent2:#a78bfa;--red:#f87171;--green:#34d399;--text:#e8eaf0;--muted:#6b7591;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+  header{padding:14px 24px 0;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;}
+  .title-row{display:flex;align-items:baseline;gap:10px;margin-bottom:12px;}
+  .title-row h1{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--accent);letter-spacing:0.04em;}
+  .title-row span{font-size:12px;color:var(--muted);}
+  .tabs{display:flex;gap:2px;}
+  .tab{padding:8px 20px;font-size:13px;font-family:'DM Mono',monospace;font-weight:500;color:var(--muted);cursor:pointer;border-radius:6px 6px 0 0;border:1px solid transparent;border-bottom:none;transition:all 0.15s;user-select:none;}
+  .tab:hover{color:var(--text);background:var(--surface2);}
+  .tab.active{color:var(--text);background:var(--bg);border-color:var(--border);}
+  .panels{flex:1;overflow:hidden;position:relative;}
+  .panel{position:absolute;inset:0;display:none;flex-direction:column;}
+  .panel.active{display:flex;}
+  .viewer-wrap{flex:1;position:relative;}
+  .viewer-wrap canvas{width:100%!important;height:100%!important;display:block;}
+  .hint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;pointer-events:none;background:rgba(15,17,23,0.7);padding:4px 12px;border-radius:20px;border:1px solid var(--border);white-space:nowrap;}
+  .poly-layout{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+  .poly-toolbar{display:flex;align-items:center;gap:12px;padding:10px 20px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;}
+  .btn{padding:7px 18px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-family:'DM Mono',monospace;font-size:12px;font-weight:500;cursor:pointer;transition:opacity 0.15s,transform 0.1s;white-space:nowrap;}
+  .btn:hover{opacity:0.85;}.btn:active{transform:scale(0.97);}
+  .btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);}
+  .status-msg{font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;}
+  .status-msg.ok{color:var(--green);}.status-msg.warn{color:#fbbf24;}
+  .poly-canvas-wrap{flex:1;position:relative;overflow:hidden;}
+  .poly-canvas-wrap canvas{width:100%!important;height:100%!important;display:block;}
+  .legend{position:absolute;top:12px;right:14px;font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;line-height:1.9;background:rgba(15,17,23,0.85);padding:10px 14px;border-radius:8px;border:1px solid var(--border);pointer-events:none;}
+  .legend span.g{color:var(--green);}.legend span.a{color:var(--accent);}.legend span.r{color:var(--red);}
+  .badge{display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:11px;font-family:'DM Mono',monospace;color:var(--muted);margin-left:auto;}
+  .badge .dot{width:7px;height:7px;border-radius:50%;background:var(--accent2);}
+</style>
+</head>
+<body>
+<header>
+  <div class="title-row"><h1>POLYSACCHARIDE EXPLORER</h1><span>interactive 3D molecular structures</span></div>
+  <div class="tabs">
+    <div class="tab active">α-glucose</div>
+    <div class="tab">β-glucose</div>
+    <div class="tab">amylose</div>
+    <div class="tab">cellulose</div>
+  </div>
+</header>
+<div class="panels">
+  <div class="panel active" id="panel-0"><div class="viewer-wrap" id="viewer-alpha"></div><div class="hint">1-finger rotate · 2-finger pan/pinch · right-drag pan</div></div>
+  <div class="panel" id="panel-1"><div class="viewer-wrap" id="viewer-beta"></div><div class="hint">1-finger rotate · 2-finger pan/pinch · right-drag pan</div></div>
+  <div class="panel" id="panel-2">
+    <div class="poly-layout">
+      <div class="poly-toolbar">
+        <button class="btn" id="btn-add-amylose">+ Add α-glucose</button>
+        <button class="btn btn-secondary" id="btn-reset-amylose">Reset</button>
+        <span class="status-msg" id="status-amylose">Click "+ Add" to add a new monomer.</span>
+        <div class="badge"><div class="dot"></div><span id="count-amylose">1 unit</span></div>
+      </div>
+      <div class="poly-canvas-wrap">
+        <canvas id="canvas-amylose"></canvas>
+        <div class="legend">
+          <div><span class="a">●</span> blue = snap zones (C1-OH &amp; C4-OH)</div>
+          <div><span class="g">drag</span> new monomer to move it</div>
+          <div><span class="r">long-press</span> new monomer to rotate it</div>
+          <div>1-finger bg = rotate · 2-finger = pan/zoom</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="panel" id="panel-3">
+    <div class="poly-layout">
+      <div class="poly-toolbar">
+        <button class="btn" id="btn-add-cellulose">+ Add β-glucose</button>
+        <button class="btn btn-secondary" id="btn-reset-cellulose">Reset</button>
+        <span class="status-msg" id="status-cellulose">Click "+ Add" to add a new monomer.</span>
+        <div class="badge"><div class="dot" style="background:#a78bfa"></div><span id="count-cellulose">1 unit</span></div>
+      </div>
+      <div class="poly-canvas-wrap">
+        <canvas id="canvas-cellulose"></canvas>
+        <div class="legend">
+          <div><span class="a">●</span> blue = snap zones (C1-OH &amp; C4-OH)</div>
+          <div><span class="g">drag</span> new monomer to move it</div>
+          <div><span class="r">long-press</span> new monomer to rotate it</div>
+          <div>1-finger bg = rotate · 2-finger = pan/zoom</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+// ── Sprite label ──
+function makeSprite(txt,color,fontSize,spriteW){
+  var cw=300,ch=90,cv=document.createElement('canvas');
+  cv.width=cw;cv.height=ch;
+  var ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,cw,ch);
+  ctx.fillStyle=color;ctx.textBaseline='middle';ctx.textAlign='center';
+  if(txt==='CH2OH'){
+    ctx.font='bold '+fontSize+'px Arial';ctx.fillText('CH',78,46);
+    ctx.font='bold '+Math.round(fontSize*0.65)+'px Arial';ctx.fillText('2',114,58);
+    ctx.font='bold '+fontSize+'px Arial';ctx.fillText('OH',150,46);
+  }else{
+    ctx.font='bold '+fontSize+'px Arial';ctx.fillText(txt,cw/2,ch/2);
+  }
+  var sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),transparent:true,depthTest:false}));
+  sp.scale.set(spriteW,spriteW*0.38,1);
+  return sp;
+}
+
+var R=2.8, OFF=2.05;
+
+// ════════════════════════════════════
+// TWO RING LAYOUTS
+// VIEWER layout: original Haworth (O top-right, C1 top-right going CW)
+//   O=30, C1=-30, C2=-90, C3=-150, C4=150, C5=90
+// POLY layout: C1 at far right, C4 at far left (shifted +120°)
+//   O=150, C1=90, C2=30, C3=-30, C4=270, C5=210
+// ════════════════════════════════════
+function vtx(deg){var r=deg*Math.PI/180;return [R*Math.sin(r),0,R*Math.cos(r)];}
+
+var VIEWER_POS={O:vtx(30),C1:vtx(-30),C2:vtx(-90),C3:vtx(-150),C4:vtx(150),C5:vtx(90)};
+var POLY_POS  ={O:vtx(150),C1:vtx(90),C2:vtx(30),C3:vtx(-30),C4:vtx(270),C5:vtx(210)};
+
+function buildGlucose(isAlpha,showC1OH,showC4OH,hlC1,hlC4,pos){
+  pos=pos||POLY_POS;
+  var g=new THREE.Group();
+  var BM=new THREE.MeshBasicMaterial({color:0xcccccc});
+  var Ov=pos.O,C1=pos.C1,C2=pos.C2,C3=pos.C3,C4=pos.C4,C5=pos.C5;
+
+  function addBond(a,b){
+    var va=new THREE.Vector3(a[0],a[1],a[2]),vb=new THREE.Vector3(b[0],b[1],b[2]);
+    var dn=new THREE.Vector3().subVectors(vb,va).normalize();
+    var s=va.clone().addScaledVector(dn,0.38),e=vb.clone().addScaledVector(dn,-0.38);
+    var sl=s.distanceTo(e);if(sl<0.01)return;
+    var mid=s.clone().add(e).multiplyScalar(0.5);
+    var c=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,sl,8),BM);
+    c.position.copy(mid);c.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),e.clone().sub(s).normalize());g.add(c);
+  }
+  function addSubBond(base,sign){
+    var stub=1.5,va=new THREE.Vector3(base[0],base[1],base[2]),vb=new THREE.Vector3(base[0],sign*stub,base[2]);
+    var dn=new THREE.Vector3().subVectors(vb,va).normalize(),s=va.clone().addScaledVector(dn,0.34);
+    var sl=s.distanceTo(vb);if(sl<0.01)return;
+    var mid=s.clone().add(vb).multiplyScalar(0.5);
+    var c=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,sl,8),BM);
+    c.position.copy(mid);c.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),vb.clone().sub(s).normalize());g.add(c);
+  }
+  function lbl(txt,p,color,fs,sw){var sp=makeSprite(txt,color,fs,sw);sp.position.set(p[0],p[1],p[2]);g.add(sp);}
+
+  addBond(Ov,C1);addBond(C1,C2);addBond(C2,C3);addBond(C3,C4);addBond(C4,C5);addBond(C5,Ov);
+
+  var lc='#e8eaf0',lo='#f87171';
+  lbl('O',Ov,lo,22,1.0);lbl('C1',C1,lc,22,1.0);lbl('C2',C2,lc,22,1.0);
+  lbl('C3',C3,lc,22,1.0);lbl('C4',C4,lc,22,1.0);lbl('C5',C5,lc,22,1.0);
+
+  var c1s=isAlpha?-1:1;
+  if(showC1OH){addSubBond(C1,c1s);lbl('OH',[C1[0],c1s*OFF,C1[2]],hlC1?'#34d399':lo,46,1.3);}
+  addSubBond(C1,-c1s);lbl('H',[C1[0],-c1s*OFF,C1[2]],'#888',46,0.9);
+  addSubBond(C2,-1);lbl('OH',[C2[0],-OFF,C2[2]],lo,46,1.3);
+  addSubBond(C2, 1);lbl('H', [C2[0], OFF,C2[2]],'#888',46,0.9);
+  addSubBond(C3, 1);lbl('OH',[C3[0], OFF,C3[2]],lo,46,1.3);
+  addSubBond(C3,-1);lbl('H', [C3[0],-OFF,C3[2]],'#888',46,0.9);
+  if(showC4OH){addSubBond(C4,-1);lbl('OH',[C4[0],-OFF,C4[2]],hlC4?'#34d399':lo,46,1.3);}
+  addSubBond(C4, 1);lbl('H',[C4[0], OFF,C4[2]],'#888',46,0.9);
+  addSubBond(C5, 1);lbl('CH2OH',[C5[0], OFF,C5[2]],lo,34,1.6);
+  addSubBond(C5,-1);lbl('H',    [C5[0],-OFF,C5[2]],'#888',46,0.9);
+
+  g.userData.c1Local=new THREE.Vector3(C1[0],c1s*OFF,C1[2]);
+  g.userData.c4Local=new THREE.Vector3(C4[0],-OFF,C4[2]);
+  return g;
+}
+
+function getC1W(grp){grp.updateMatrixWorld(true);return grp.userData.c1Local.clone().applyMatrix4(grp.matrixWorld);}
+function getC4W(grp){grp.updateMatrixWorld(true);return grp.userData.c4Local.clone().applyMatrix4(grp.matrixWorld);}
+
+function buildGBond(p1,p4){
+  var grp=new THREE.Group(),mid=p1.clone().add(p4).multiplyScalar(0.5);
+  var mat=new THREE.MeshBasicMaterial({color:0x34d399});
+  function seg(a,b){
+    var dn=new THREE.Vector3().subVectors(b,a).normalize();
+    var s=a.clone().addScaledVector(dn,0.30),e=b.clone().addScaledVector(dn,-0.30);
+    var sl=s.distanceTo(e);if(sl<0.01)return;
+    var cm=s.clone().add(e).multiplyScalar(0.5);
+    var c=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,sl,8),mat.clone());
+    c.position.copy(cm);c.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),e.clone().sub(s).normalize());grp.add(c);
+  }
+  seg(p1,mid);seg(mid,p4);
+  var oSp=makeSprite('O','#34d399',22,1.0);oSp.position.copy(mid);grp.add(oSp);
+  return grp;
+}
+
+// ── Touch helpers shared ──
+function touchMid(t){return {x:(t[0].clientX+t[1].clientX)/2,y:(t[0].clientY+t[1].clientY)/2};}
+function touchPD(t){var dx=t[0].clientX-t[1].clientX,dy=t[0].clientY-t[1].clientY;return Math.sqrt(dx*dx+dy*dy);}
+
+// ════════════════════════════════════
+// SIMPLE VIEWER — tabs 0 & 1
+// Uses VIEWER_POS (original Haworth layout)
+// ════════════════════════════════════
+function initViewer(containerId,isAlpha){
+  var container=document.getElementById(containerId);
+  var renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+  renderer.setPixelRatio(window.devicePixelRatio);renderer.setClearColor(0,0);
+  container.appendChild(renderer.domElement);
+  var scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(42,1,0.1,100);
+  camera.position.set(0,0,11);camera.lookAt(0,0,0);
+  scene.add(new THREE.AmbientLight(0xffffff,1.0));
+  // Use original VIEWER layout
+  var mol=buildGlucose(isAlpha,true,true,false,false,VIEWER_POS);
+  mol.rotation.x=0.42;mol.rotation.y=-0.15;scene.add(mol);
+
+  var dm=null,px=0,py=0,el=renderer.domElement;
+  el.addEventListener('contextmenu',function(e){e.preventDefault();});
+  el.addEventListener('mousedown',function(e){px=e.clientX;py=e.clientY;dm=(e.button===1||e.button===2)?'pan':'rotate';});
+  window.addEventListener('mouseup',function(){dm=null;});
+  el.addEventListener('mousemove',function(e){
+    if(!dm)return;
+    var dx=e.clientX-px,dy=e.clientY-py;px=e.clientX;py=e.clientY;
+    if(dm==='rotate'){mol.rotation.y+=dx*0.012;mol.rotation.x+=dy*0.012;}
+    else{camera.position.x-=dx*0.02;camera.position.y+=dy*0.02;}
+  });
+  el.addEventListener('wheel',function(e){camera.position.z=Math.max(5,Math.min(18,camera.position.z+e.deltaY*0.01));},{passive:true});
+
+  // Touch
+  var vt={prev:null,pd:null};
+  el.addEventListener('touchstart',function(e){e.preventDefault();var t=e.touches;
+    if(t.length===1){vt.prev={x:t[0].clientX,y:t[0].clientY};vt.pd=null;}
+    else if(t.length===2){vt.prev=touchMid(t);vt.pd=touchPD(t);}
+  },{passive:false});
+  el.addEventListener('touchmove',function(e){e.preventDefault();var t=e.touches;
+    if(t.length===1&&vt.prev){var dx=t[0].clientX-vt.prev.x,dy=t[0].clientY-vt.prev.y;mol.rotation.y+=dx*0.012;mol.rotation.x+=dy*0.012;vt.prev={x:t[0].clientX,y:t[0].clientY};}
+    else if(t.length===2&&vt.prev){var mid=touchMid(t),pd=touchPD(t),dx=mid.x-vt.prev.x,dy=mid.y-vt.prev.y,sp=camera.position.z*0.001;camera.position.x-=dx*sp;camera.position.y+=dy*sp;if(vt.pd)camera.position.z=Math.max(5,Math.min(18,camera.position.z*(vt.pd/pd)));vt.prev=mid;vt.pd=pd;}
+  },{passive:false});
+  el.addEventListener('touchend',function(){vt.prev=null;vt.pd=null;},{passive:true});
+
+  function resize(){var w=container.clientWidth,h=container.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+  resize();new ResizeObserver(resize).observe(container);
+  (function ani(){requestAnimationFrame(ani);renderer.render(scene,camera);})();
+}
+
+// ════════════════════════════════════
+// POLY SCENE — tabs 2 & 3
+// Uses POLY_POS (C1 right, C4 left)
+// ════════════════════════════════════
+function initPolyScene(canvasId,isAlpha){
+  var canvas=document.getElementById(canvasId);
+  var renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true,alpha:true});
+  renderer.setPixelRatio(window.devicePixelRatio);renderer.setClearColor(0,0);
+  var scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(42,1,0.1,300);
+  camera.position.set(0,0,20);camera.lookAt(0,0,0);
+  scene.add(new THREE.AmbientLight(0xffffff,1.0));
+  var masterGroup=new THREE.Group();scene.add(masterGroup);
+
+  var chain=[],bondData=[],bondMeshes=[];
+  var newMon=null,snapped=false,dragMode=null;
+  var dragPrev={x:0,y:0},moveOffset=new THREE.Vector3();
+
+  var statusEl=document.getElementById(isAlpha?'status-amylose':'status-cellulose');
+  var countEl =document.getElementById(isAlpha?'count-amylose':'count-cellulose');
+  function setStatus(msg,cls){statusEl.textContent=msg;statusEl.className='status-msg '+(cls||'');}
+  function setCount(){countEl.textContent=chain.length+' unit'+(chain.length!==1?'s':'');}
+
+  function rebuildVisual(entry){
+    while(entry.grp.children.length)entry.grp.remove(entry.grp.children[0]);
+    var fresh=buildGlucose(isAlpha,entry.showC1OH,entry.showC4OH,entry.hlC1,entry.hlC4,POLY_POS);
+    while(fresh.children.length){var ch=fresh.children[0];fresh.remove(ch);entry.grp.add(ch);}
+    entry.grp.userData.c1Local=fresh.userData.c1Local.clone();
+    entry.grp.userData.c4Local=fresh.userData.c4Local.clone();
+  }
+
+  // Cellulose step: C1 at x=+R,z=0; C4 at x=-R,z=0 → step = 2R
+  var CEL_STEP=2*R;
+
+  function addFirstMonomer(){
+    var grp=new THREE.Group();
+    grp.rotation.x=0.3;
+    masterGroup.add(grp);
+    var entry={grp:grp,showC1OH:true,showC4OH:true,hlC1:true,hlC4:false};
+    chain.push(entry);rebuildVisual(entry);setCount();
+  }
+
+  function updateChainVisuals(){
+    chain.forEach(function(entry,i){
+      var isFirst=(i===0),isLast=(i===chain.length-1);
+      if(chain.length===1){entry.showC1OH=true;entry.showC4OH=true;entry.hlC1=true;entry.hlC4=false;}
+      else{entry.showC1OH=isLast;entry.showC4OH=isFirst;entry.hlC1=isLast;entry.hlC4=false;}
+      rebuildVisual(entry);
+    });
+  }
+
+  function spawnNew(){
+    if(newMon){scene.remove(newMon);newMon=null;}
+    newMon=buildGlucose(isAlpha,true,true,false,true,POLY_POS);
+    newMon.position.set(14,0,0);newMon.rotation.x=0.3;newMon.rotation.y=0;
+    scene.add(newMon);snapped=false;
+    setStatus('Drag new monomer until blue dots overlap, then release to bond.','warn');
+  }
+
+  function checkSnap(){
+    if(!newMon||!chain.length)return false;
+    masterGroup.updateMatrixWorld(true);newMon.updateMatrixWorld(true);
+    var c1oh=getC1W(chain[chain.length-1].grp),c4oh=getC4W(newMon);
+    var c1n=c1oh.clone().project(camera),c4n=c4oh.clone().project(camera);
+    return Math.sqrt(Math.pow(c1n.x-c4n.x,2)+Math.pow(c1n.y-c4n.y,2))<0.15;
+  }
+
+  function lockSnap(){
+    if(!newMon)return;
+    var lastGrp=chain[chain.length-1].grp;
+    lastGrp.updateMatrixWorld(true);
+    bondData.push({fromIdx:chain.length-1,toIdx:chain.length});
+    scene.remove(newMon);
+    var lockedGrp=new THREE.Group();
+    var fresh=buildGlucose(isAlpha,true,true,false,false,POLY_POS);
+    lockedGrp.userData.c1Local=fresh.userData.c1Local.clone();
+    lockedGrp.userData.c4Local=fresh.userData.c4Local.clone();
+
+    if(isAlpha){
+      // Amylose: 60° helix per step around Y, slight Y drop
+      var c1w=getC1W(lastGrp);
+      var lastQ=new THREE.Quaternion();lastGrp.getWorldQuaternion(lastQ);
+      var newQ=lastQ.clone();
+      newQ.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),Math.PI/3));
+      var c4r=newMon.userData.c4Local.clone().applyQuaternion(newQ);
+      var worldPos=c1w.clone().sub(c4r);worldPos.y-=0.8;
+      masterGroup.updateMatrixWorld(true);
+      var invMG=new THREE.Matrix4().copy(masterGroup.matrixWorld).invert();
+      lockedGrp.position.copy(worldPos.clone().applyMatrix4(invMG));
+      var mgQ=new THREE.Quaternion();masterGroup.getWorldQuaternion(mgQ);
+      lockedGrp.quaternion.copy(newQ.clone().premultiply(mgQ.clone().invert()));
+    } else {
+      // Cellulose: straight along X, alternating 180° X-flip
+      lockedGrp.position.set(chain[chain.length-1].grp.position.x+CEL_STEP,0,0);
+      if(chain.length%2===1)lockedGrp.quaternion.setFromAxisAngle(new THREE.Vector3(1,0,0),Math.PI);
+      else lockedGrp.quaternion.set(0,0,0,1);
+    }
+
+    masterGroup.add(lockedGrp);
+    chain.push({grp:lockedGrp,showC1OH:true,showC4OH:false,hlC1:false,hlC4:false});
+    newMon=null;snapped=false;
+    updateChainVisuals();setCount();
+    setStatus((isAlpha?'α':'β')+'(1→4) glycosidic bond formed! Click "+ Add" for another.','ok');
+  }
+
+  function rebuildBondMeshes(){
+    bondMeshes.forEach(function(m){scene.remove(m);});bondMeshes=[];
+    masterGroup.updateMatrixWorld(true);
+    bondData.forEach(function(bd){
+      var f=chain[bd.fromIdx],t=chain[bd.toIdx];if(!f||!t)return;
+      var grp=buildGBond(getC1W(f.grp),getC4W(t.grp));
+      scene.add(grp);bondMeshes.push(grp);
+    });
+  }
+
+  // ── Mouse input ──
+  var raycaster=new THREE.Raycaster();
+  function ndcOf(e){var r=canvas.getBoundingClientRect();return new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);}
+  function hitsNew(ndc){
+    if(!newMon)return false;
+    raycaster.setFromCamera(ndc,camera);
+    var wp=new THREE.Vector3();newMon.getWorldPosition(wp);
+    return raycaster.ray.distanceToPoint(wp)<5.5;
+  }
+  function toPlane(ndc,z){
+    raycaster.setFromCamera(ndc,camera);
+    var t=new THREE.Vector3();
+    return raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,0,1),-z),t)?t:null;
+  }
+
+  canvas.addEventListener('mousedown',function(e){
+    dragPrev={x:e.clientX,y:e.clientY};
+    var ndc=ndcOf(e),hn=hitsNew(ndc);
+    if(e.button===1){dragMode='pan';}
+    else if(e.button===0){
+      if(newMon&&hn&&e.shiftKey)dragMode='rotate_new';
+      else if(newMon&&hn){
+        dragMode='move_new';
+        var wp=new THREE.Vector3();newMon.getWorldPosition(wp);
+        var mw=toPlane(ndc,wp.z);if(mw)moveOffset.subVectors(wp,mw);
+      }else dragMode='rotate_master';
+    }else if(e.button===2){dragMode=(newMon&&hn)?'rotate_new':'pan';}
+  });
+  canvas.addEventListener('contextmenu',function(e){e.preventDefault();});
+  window.addEventListener('mouseup',function(){if(dragMode==='move_new'&&snapped)lockSnap();dragMode=null;});
+  window.addEventListener('mousemove',function(e){
+    if(!dragMode)return;
+    var dx=e.clientX-dragPrev.x,dy=e.clientY-dragPrev.y;
+    dragPrev={x:e.clientX,y:e.clientY};
+    if(dragMode==='move_new'&&newMon){
+      var wp=new THREE.Vector3();newMon.getWorldPosition(wp);
+      var mw=toPlane(ndcOf(e),wp.z);if(mw)newMon.position.copy(mw.clone().add(moveOffset));
+      newMon.updateMatrixWorld(true);
+      var was=snapped;snapped=checkSnap();
+      if(snapped!==was){if(snapped)setStatus('Release to snap & bond!','ok');else setStatus('Overlap the blue dots...','warn');}
+    }else if(dragMode==='rotate_new'&&newMon){
+      newMon.rotation.y+=dx*0.012;newMon.rotation.x+=dy*0.012;
+      newMon.updateMatrixWorld(true);snapped=checkSnap();
+    }else if(dragMode==='rotate_master'){
+      masterGroup.rotation.y+=dx*0.012;masterGroup.rotation.x+=dy*0.012;
+    }else if(dragMode==='pan'){
+      var sp=camera.position.z*0.001;
+      camera.position.x-=dx*sp;camera.position.y+=dy*sp;
+    }
+  });
+  canvas.addEventListener('wheel',function(e){camera.position.z=Math.max(6,Math.min(80,camera.position.z+e.deltaY*0.05));},{passive:true});
+
+  // ── Touch input ──
+  var pt={prev:null,pd:null,longTimer:null,longMode:false,touchOnNew:false};
+  function tNdc(t){var r=canvas.getBoundingClientRect();return new THREE.Vector2(((t.clientX-r.left)/r.width)*2-1,-((t.clientY-r.top)/r.height)*2+1);}
+
+  canvas.addEventListener('touchstart',function(e){
+    e.preventDefault();var t=e.touches;
+    if(t.length===1){
+      pt.prev={x:t[0].clientX,y:t[0].clientY};pt.pd=null;pt.longMode=false;
+      pt.touchOnNew=hitsNew(tNdc(t[0]));
+      if(pt.longTimer){clearTimeout(pt.longTimer);pt.longTimer=null;}
+      if(pt.touchOnNew&&newMon){
+        pt.longTimer=setTimeout(function(){pt.longMode=true;setStatus('Rotating — drag to rotate monomer.','warn');},500);
+        var wp=new THREE.Vector3();newMon.getWorldPosition(wp);
+        var mw=toPlane(tNdc(t[0]),wp.z);if(mw)moveOffset.subVectors(wp,mw);
+      }
+    }else if(t.length===2){
+      if(pt.longTimer){clearTimeout(pt.longTimer);pt.longTimer=null;}
+      pt.prev=touchMid(t);pt.pd=touchPD(t);pt.touchOnNew=false;pt.longMode=false;
+    }
+  },{passive:false});
+
+  canvas.addEventListener('touchmove',function(e){
+    e.preventDefault();var t=e.touches;
+    if(t.length===1&&pt.prev){
+      var dx=t[0].clientX-pt.prev.x,dy=t[0].clientY-pt.prev.y;
+      pt.prev={x:t[0].clientX,y:t[0].clientY};
+      if(pt.longMode&&newMon){
+        newMon.rotation.y+=dx*0.012;newMon.rotation.x+=dy*0.012;
+        newMon.updateMatrixWorld(true);snapped=checkSnap();
+      }else if(pt.touchOnNew&&newMon){
+        var wp=new THREE.Vector3();newMon.getWorldPosition(wp);
+        var mw=toPlane(tNdc(t[0]),wp.z);if(mw)newMon.position.copy(mw.clone().add(moveOffset));
+        newMon.updateMatrixWorld(true);
+        var was=snapped;snapped=checkSnap();
+        if(snapped!==was){if(snapped)setStatus('Release to snap & bond!','ok');else setStatus('Overlap the blue dots...','warn');}
+      }else{
+        masterGroup.rotation.y+=dx*0.012;masterGroup.rotation.x+=dy*0.012;
+      }
+    }else if(t.length===2&&pt.prev){
+      var mid=touchMid(t),pd=touchPD(t),dx=mid.x-pt.prev.x,dy=mid.y-pt.prev.y;
+      var sp=camera.position.z*0.001;
+      camera.position.x-=dx*sp;camera.position.y+=dy*sp;
+      if(pt.pd)camera.position.z=Math.max(6,Math.min(80,camera.position.z*(pt.pd/pd)));
+      pt.prev=mid;pt.pd=pd;
+    }
+  },{passive:false});
+
+  canvas.addEventListener('touchend',function(e){
+    if(pt.longTimer){clearTimeout(pt.longTimer);pt.longTimer=null;}
+    if(e.touches.length===0){
+      if(pt.touchOnNew&&snapped&&!pt.longMode)lockSnap();
+      pt.prev=null;pt.pd=null;pt.longMode=false;pt.touchOnNew=false;
+    }
+  },{passive:true});
+
+  // ── Snap dots ──
+  var snapDots=[];
+  function refreshSnapDots(){
+    snapDots.forEach(function(s){scene.remove(s);});snapDots=[];
+    if(!newMon||!chain.length)return;
+    masterGroup.updateMatrixWorld(true);newMon.updateMatrixWorld(true);
+    var p1=getC1W(chain[chain.length-1].grp),p4=getC4W(newMon);
+    var col=snapped?0x34d399:0x4f9cf9;
+    [p1,p4].forEach(function(pos){
+      var m=new THREE.Mesh(new THREE.SphereGeometry(0.45,12,12),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.65}));
+      m.position.copy(pos);scene.add(m);snapDots.push(m);
+    });
+  }
+
+  document.getElementById(isAlpha?'btn-add-amylose':'btn-add-cellulose').addEventListener('click',function(){if(!newMon)spawnNew();});
+  document.getElementById(isAlpha?'btn-reset-amylose':'btn-reset-cellulose').addEventListener('click',function(){
+    masterGroup.clear();
+    if(newMon){scene.remove(newMon);newMon=null;}
+    snapDots.forEach(function(s){scene.remove(s);});snapDots=[];
+    bondMeshes.forEach(function(m){scene.remove(m);});bondMeshes=[];
+    chain=[];bondData=[];masterGroup.rotation.set(0,0,0);
+    addFirstMonomer();setStatus('Reset. Click "+ Add" to begin bonding.');
+  });
+
+  function resize(){var w=canvas.parentElement.clientWidth,h=canvas.parentElement.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+  resize();new ResizeObserver(resize).observe(canvas.parentElement);
+  addFirstMonomer();
+  setStatus('Click "+ Add '+(isAlpha?'α':'β')+'-glucose" to start building the chain.');
+  (function ani(){
+    requestAnimationFrame(ani);
+    rebuildBondMeshes();
+    if(newMon)refreshSnapDots();
+    else{snapDots.forEach(function(s){scene.remove(s);});snapDots=[];}
+    renderer.render(scene,camera);
+  })();
+}
+
+// ── Tab switching ──
+var tabs=document.querySelectorAll('.tab'),panels=document.querySelectorAll('.panel'),inited=[false,false,false,false];
+function switchTab(i){
+  tabs.forEach(function(t,j){t.classList.toggle('active',i===j);});
+  panels.forEach(function(p,j){p.classList.toggle('active',i===j);});
+  if(!inited[i]){inited[i]=true;
+    if(i===0)initViewer('viewer-alpha',true);
+    if(i===1)initViewer('viewer-beta',false);
+    if(i===2)initPolyScene('canvas-amylose',true);
+    if(i===3)initPolyScene('canvas-cellulose',false);
+  }
+}
+tabs.forEach(function(t,i){t.addEventListener('click',function(){switchTab(i);});});
+inited[0]=true;initViewer('viewer-alpha',true);
+</script>
+</body>
+</html>
